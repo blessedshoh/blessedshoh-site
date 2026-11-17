@@ -1,4 +1,5 @@
-// blessedshoh.dev holding page and redirects. Replaced by the hub in Phase 2.
+// Retired 2026-11-17: the hub now serves blessedshoh.dev and www. Kept for reference only;
+// deploying this again would take those addresses back from the hub.
 // Deploy:  pnpm --dir ../options exec wrangler deploy --config ../home/wrangler.jsonc
 {
   "$schema": "../options/node_modules/wrangler/config-schema.json",

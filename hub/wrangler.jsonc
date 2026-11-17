@@ -21,8 +21,12 @@
     "ACCESS_AUD": "fb05e217b9e38fa18b79124a7c22579bb93eed7d89d9766c23cf0a54fd5fc77f",
     "API_BASE": "https://api.blessedshoh.dev"
   },
-  // A temporary address while the hub is tested. The switch to blessedshoh.dev comes later.
-  "routes": [{ "pattern": "next.blessedshoh.dev", "custom_domain": true }],
+  // www and the old test address (next.) redirect to blessedshoh.dev in the middleware.
+  "routes": [
+    { "pattern": "blessedshoh.dev", "custom_domain": true },
+    { "pattern": "www.blessedshoh.dev", "custom_domain": true },
+    { "pattern": "next.blessedshoh.dev", "custom_domain": true }
+  ],
   "workers_dev": false,
   "preview_urls": false,
   "send_metrics": false,

@@ -5,6 +5,8 @@ import { adminFromRequest } from "./lib/access.ts";
 
 // Links into the CFA site, from before it moved to its own address, land there.
 const PREP = "https://prep.blessedshoh.dev";
+const CANONICAL_HOST = "blessedshoh.dev";
+const FOLDED_HOSTS = new Set(["www.blessedshoh.dev", "next.blessedshoh.dev"]);
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
@@ -28,6 +30,11 @@ function refuse(): Response {
 export const onRequest = defineMiddleware(async (context, next) => {
   const { request, url } = context;
   const path = url.pathname;
+
+  // One address for the hub: www and the old test address fold into blessedshoh.dev.
+  if (FOLDED_HOSTS.has(url.hostname)) {
+    return Response.redirect(`https://${CANONICAL_HOST}${path}${url.search}`, 301);
+  }
   const admin = isAdminPath(path);
 
   if (admin) {
