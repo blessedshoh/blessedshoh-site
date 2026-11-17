@@ -122,3 +122,31 @@ export function fetchArbitrage(
 ) {
   return post<ArbitrageResponse>(`${apiBase}/options/arbitrage`, { ...market, quotes }, signal);
 }
+
+export interface ReplicateResponse {
+  holdings: { kind: "call" | "put" | "stock" | "cash"; quantity: number; strike: number | null; price: number }[];
+  cost: number;
+  max_error: number;
+  prices: number[];
+  target: number[];
+  fitted: number[];
+}
+
+/** The portfolio closest to (or never below) a drawn expiry payoff. */
+export function fetchReplicate(
+  apiBase: string,
+  request: {
+    spot: number;
+    days: number;
+    rate: number;
+    div_yield: number;
+    atm_vol: number;
+    target_prices: number[];
+    target_payoffs: number[];
+    mode: "match" | "cheapest";
+    max_legs: number;
+  },
+  signal?: AbortSignal,
+) {
+  return post<ReplicateResponse>(`${apiBase}/options/replicate`, request, signal);
+}

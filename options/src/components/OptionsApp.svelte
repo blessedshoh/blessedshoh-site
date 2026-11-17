@@ -14,6 +14,7 @@
   import PayoffChart from "./PayoffChart.svelte";
   import RiskPanel from "./RiskPanel.svelte";
   import ChainPanel from "./ChainPanel.svelte";
+  import SketchPanel from "./SketchPanel.svelte";
   import TreeExplorer from "./TreeExplorer.svelte";
 
   interface Props {
@@ -462,6 +463,10 @@
         if (position.legs.length < 8) position.legs.push(leg);
       }}
     />
+  {/if}
+
+  {#if settings.flags.sketch}
+    <SketchPanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
   {/if}
 
   {#if settings.flags.binomial}
