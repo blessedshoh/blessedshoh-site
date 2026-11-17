@@ -9,18 +9,22 @@
   import { sliceAt, tableAt, toCube, valueAt } from "../lib/grid.ts";
   import { cleanLeg, clonePosition, decodeState, encodeState, isValidPosition } from "../lib/state.ts";
   import { dragStep } from "../lib/templates.ts";
-  import type { GridResponse, Position, Settings } from "../lib/types.ts";
+  import type { ExplainResponse, GridResponse, Position, RiskResponse, Settings } from "../lib/types.ts";
   import LegsEditor from "./LegsEditor.svelte";
   import PayoffChart from "./PayoffChart.svelte";
+  import RiskPanel from "./RiskPanel.svelte";
 
   interface Props {
     settings: Settings;
     /** A two-date version of the default example, shipped inside the page for an instant first view. */
     first: GridResponse;
+    /** The default example's risk numbers, also shipped inside the page. */
+    firstRisk: { risk: RiskResponse; explain: ExplainResponse };
     apiBase: string;
   }
 
-  let { settings, first, apiBase }: Props = $props();
+  let { settings, first, firstRisk, apiBase }: Props = $props();
+  let distribution = $state.raw<RiskResponse["distribution"]>(null);
 
   /** Everything that changes the numbers. The label does not, so it is left out. */
   const pricingKey = (value: Position, range: number) =>
@@ -345,6 +349,7 @@
         {stale}
         step={dragStep(position.spot)}
         onstrike={moveStrike}
+        density={settings.flags.risk ? distribution : null}
       />
       <aside class="greeks" aria-label="Position Greeks">
         <div class="k">Position Greeks</div>
@@ -420,6 +425,17 @@
       {problem} The chart shows the last position that was priced.
       <button type="button" class="btn" onclick={load}>Try again</button>
     </p>
+  {/if}
+
+  {#if settings.flags.risk}
+    <RiskPanel
+      {apiBase}
+      position={priced}
+      {rangePct}
+      defaults={settings.risk_defaults}
+      initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
+      bind:distribution
+    />
   {/if}
 
   <h2 class="section">Position</h2>

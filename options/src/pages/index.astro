@@ -1,6 +1,7 @@
 ---
 import OptionsApp from "../components/OptionsApp.svelte";
 import first from "../data/default-first.json";
+import firstRisk from "../data/default-risk.json";
 import settings from "../data/settings.json";
 import Base from "../layouts/Base.astro";
 
@@ -12,5 +13,5 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? settings.api_base;
   description="See how an options position makes or loses money as price, time and volatility change. Black-Scholes pricing with every number explained."
   links={settings.projects}
 >
-  <OptionsApp client:load settings={settings} first={first} apiBase={apiBase} />
+  <OptionsApp client:load settings={settings} first={first} firstRisk={firstRisk} apiBase={apiBase} />
 </Base>

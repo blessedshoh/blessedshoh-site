@@ -8,7 +8,8 @@
     "legs": [{ "kind": "call", "quantity": 10, "strike": 180, "days": 30, "vol": 0.64 }]
   },
   "default_range_pct": 0.25,
-  "flags": {},
+  "risk_defaults": { "move_pct": 0.05, "days": 7, "vol_points": 0 },
+  "flags": { "risk": true },
   "banner": null,
   "projects": [{ "title": "Options", "url": "/", "current": true }]
 }

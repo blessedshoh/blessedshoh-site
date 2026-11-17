@@ -28,10 +28,29 @@
     /** Strike spacing used while dragging. */
     step: number;
     onstrike?: (indices: number[], strike: number) => void;
+    /** Risk-neutral density of the price at expiry, drawn as the "likely range" overlay. */
+    density?: { prices: number[]; density: number[] } | null;
   }
 
-  let { prices, curve, expiry, today, spot, breakevens, legs, label, curveName, atExpiry, busy, stale, step, onstrike }: Props =
-    $props();
+  let {
+    prices,
+    curve,
+    expiry,
+    today,
+    spot,
+    breakevens,
+    legs,
+    label,
+    curveName,
+    atExpiry,
+    busy,
+    stale,
+    step,
+    onstrike,
+    density = null,
+  }: Props = $props();
+
+  let showDensity = $state(true);
 
   const uid = $props.id();
   const margin = { left: 58, right: 16, top: 16 };
@@ -123,6 +142,20 @@
     for (let i = 0; i < prices.length; i++) d += `${i ? "L" : "M"}${px(sx(prices[i]))} ${px(sy(series[i]))}`;
     return d;
   }
+
+  // The likely-range overlay: the density scaled into the bottom quarter of the plot.
+  const densityPath = $derived.by(() => {
+    if (!density || !density.prices.length) return "";
+    const peak = Math.max(...density.density);
+    if (!(peak > 0)) return "";
+    const base = H - bottom;
+    const band = (H - margin.top - bottom) * 0.2;
+    let d = `M${px(sx(density.prices[0]))} ${px(base)}`;
+    density.prices.forEach((p, i) => {
+      if (p >= x0 && p <= x1) d += `L${px(sx(p))} ${px(base - (density.density[i] / peak) * band)}`;
+    });
+    return `${d}L${px(sx(density.prices[density.prices.length - 1]))} ${px(base)}Z`;
+  });
 
   const curvePath = $derived(linePath(curve));
   const expiryPath = $derived(linePath(expiry));
@@ -231,6 +264,12 @@
         At expiry
       </span>
     {/if}
+    {#if densityPath}
+      <button type="button" class="item toggle" aria-pressed={showDensity} onclick={() => (showDensity = !showDensity)}>
+        <svg class="sample" width="22" height="10" aria-hidden="true"><rect class="s-density" x="0" y="1" width="22" height="8" rx="2" /></svg>
+        Likely finish
+      </button>
+    {/if}
     <span class="busy" aria-live="polite">{busy}</span>
   </div>
 
@@ -265,6 +304,7 @@
         {/each}
       </g>
 
+      {#if showDensity && densityPath}<path class="density" d={densityPath} />{/if}
       <path class="area up" d={areaPath} clip-path="url(#{uid}-up)" />
       <path class="area down" d={areaPath} clip-path="url(#{uid}-down)" />
       <line class="zero" x1={margin.left} x2={W - margin.right} y1={px(zeroY)} y2={px(zeroY)} />
@@ -348,6 +388,26 @@
   .busy {
     margin-left: auto;
     color: var(--accent);
+  }
+  .toggle {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .toggle[aria-pressed="false"] {
+    opacity: 0.45;
+    text-decoration: line-through;
+  }
+  .density,
+  .s-density {
+    fill: var(--accent);
+    fill-opacity: 0.1;
+    stroke: var(--accent);
+    stroke-opacity: 0.4;
+    stroke-width: 1;
   }
   .plot {
     position: relative;

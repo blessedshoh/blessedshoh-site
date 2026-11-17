@@ -50,8 +50,34 @@ const first = {
   summary: full.summary,
 };
 
+// The risk panel's first view: risk numbers and the default P/L explain.
+async function post(path, extra) {
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      spot: position.spot,
+      rate: position.rate,
+      div_yield: position.div_yield,
+      legs: position.legs,
+      range_pct: settings.default_range_pct,
+      ...extra,
+    }),
+  });
+  if (!res.ok) throw new Error(`${path} answered ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+const d = settings.risk_defaults;
+const risk = await post("/options/risk", {});
+const explain = await post("/options/explain", {
+  price_move_pct: d.move_pct,
+  days_passed: d.days,
+  vol_shift: d.vol_points / 100,
+});
+
 await writeFile(here("../public/default-grid.json"), JSON.stringify(full));
 await writeFile(here("../src/data/default-first.json"), JSON.stringify(first));
+await writeFile(here("../src/data/default-risk.json"), JSON.stringify({ risk, explain }));
 
 const kb = (value) => (JSON.stringify(value).length / 1024).toFixed(0);
 console.log(`default-grid.json  ${kb(full)} KB, ${full.profit.values.length} values`);

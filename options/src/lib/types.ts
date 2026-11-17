@@ -44,10 +44,50 @@ export interface GridResponse {
   summary: Summary;
 }
 
+export interface RiskResponse {
+  representative_vol: number | null;
+  /** Risk-neutral, at the first expiry. */
+  chance_of_profit: number | null;
+  chance_of_profit_with_drift: number | null;
+  expected_profit: number | null;
+  distribution: {
+    days: number;
+    vol: number;
+    prices: number[];
+    density: number[];
+    below_range: number;
+    above_range: number;
+  } | null;
+  scenarios: {
+    price_shocks: number[];
+    vol_shifts: number[];
+    horizon_days: number;
+    /** Indexed [vol_shift][price_shock]. */
+    profit: number[][];
+  };
+}
+
+export interface ExplainResponse {
+  price_move: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  unexplained: number;
+  actual: number;
+}
+
+export interface RiskDefaults {
+  move_pct: number;
+  days: number;
+  vol_points: number;
+}
+
 export interface Settings {
   api_base: string;
   default_position: Position;
   default_range_pct: number;
+  risk_defaults: RiskDefaults;
   /** Feature switches. A missing key means off. */
   flags: Record<string, boolean>;
   /** Optional notice shown above the tool. */
