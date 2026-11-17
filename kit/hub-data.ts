@@ -69,7 +69,7 @@ export const today = () => new Date().toISOString().slice(0, 10);
 
 /** Automated traffic is left out of the visit numbers. */
 export function looksAutomated(userAgent: string | null): boolean {
-  return !userAgent || /bot|crawl|spider|slurp|preview|monitor|curl|wget|python|headless|lighthouse/i.test(userAgent);
+  return !userAgent || /bot|crawl|spider|slurp|preview|monitor|curl|wget|python|powershell|headless|lighthouse/i.test(userAgent);
 }
 
 /** The referring site's host name, or '' for direct visits and links within the site itself. */

@@ -96,6 +96,10 @@ const when = (at: string) => at.replace("T", " ").slice(0, 16);
     gap: 14px;
     margin: 0 0 22px;
   }
+  /* Side by side, so the stacked-panel spacing from the layout does not apply. */
+  .tiles .panel {
+    margin-top: 0;
+  }
   .tiles dd {
     margin: 8px 0 0;
     font-size: 30px;
