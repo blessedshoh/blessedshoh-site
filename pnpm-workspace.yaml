@@ -1,0 +1,6 @@
+packages:
+  - kit
+  - options
+allowBuilds:
+  esbuild: true
+  workerd: true

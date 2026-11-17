@@ -1,0 +1,16 @@
+// blessedshoh.dev holding page and redirects. Replaced by the hub in Phase 2.
+// Deploy:  pnpm --dir ../options exec wrangler deploy --config ../home/wrangler.jsonc
+{
+  "$schema": "../options/node_modules/wrangler/config-schema.json",
+  "name": "blessedshoh-home",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "routes": [
+    { "pattern": "blessedshoh.dev", "custom_domain": true },
+    { "pattern": "www.blessedshoh.dev", "custom_domain": true }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false
+}

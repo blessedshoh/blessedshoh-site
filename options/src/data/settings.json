@@ -1,0 +1,14 @@
+{
+  "api_base": "https://api.blessedshoh.dev",
+  "default_position": {
+    "label": "XYZ",
+    "spot": 166,
+    "rate": 0.04,
+    "div_yield": 0,
+    "legs": [{ "kind": "call", "quantity": 10, "strike": 180, "days": 30, "vol": 0.64 }]
+  },
+  "default_range_pct": 0.25,
+  "flags": {},
+  "banner": null,
+  "projects": [{ "title": "Options", "url": "/", "current": true }]
+}

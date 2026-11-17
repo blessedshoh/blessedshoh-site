@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three looks</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#e9e8e4;color:#1b1b1a;font:15px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.page{max-width:1120px;margin:0 auto;padding:28px 16px 72px}
+.intro h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px}
+.intro p{margin:0;color:#5b5a55;max-width:62ch}
+.play{margin-top:14px;font:inherit;font-size:14px;font-weight:600;color:#fff;background:#1b1b1a;border:0;border-radius:999px;padding:8px 16px;cursor:pointer}
+.play:hover{background:#000}
+.look{margin-top:40px}
+.head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.head .tag{flex:none;width:26px;height:26px;border-radius:50%;background:#1b1b1a;color:#fff;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.head h2{font-size:17px;font-weight:600;margin:0}
+.head .d{color:#5b5a55;font-size:14px}
+.frame{overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.08),0 18px 40px -18px rgba(0,0,0,.35)}
+.num{font-variant-numeric:tabular-nums}
+.chart{position:relative}
+.chart svg{display:block;width:100%;touch-action:none;cursor:crosshair}
+.hov{opacity:0;transition:opacity .12s}
+.chart.on .hov{opacity:1}
+.tip{position:absolute;left:0;top:0;pointer-events:none;white-space:nowrap;transform:translate(-50%,-135%);font-variant-numeric:tabular-nums}
+.bedot{fill:currentColor}
+.frame input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;flex:1;min-width:0;height:26px;margin:0;cursor:pointer}
+.frame input[type=range]::-webkit-slider-runnable-track{height:var(--trk-h,4px);background:var(--trk);border-radius:var(--trk-r,2px)}
+.frame input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:var(--th-w,16px);height:var(--th-h,16px);border-radius:var(--th-r,50%);background:var(--th);border:var(--th-b,0);box-shadow:var(--th-s,none);margin-top:calc((var(--trk-h,4px) - var(--th-h,16px))/2)}
+.frame input[type=range]::-moz-range-track{height:var(--trk-h,4px);background:var(--trk);border-radius:var(--trk-r,2px)}
+.frame input[type=range]::-moz-range-thumb{width:var(--th-w,16px);height:var(--th-h,16px);border-radius:var(--th-r,50%);background:var(--th);border:var(--th-b,0);box-shadow:var(--th-s,none)}
+
+.t-a{--bg:#0a0d12;--panel:#0e131b;--line:#1c2532;--text:#cdd7e5;--muted:#62728a;--accent:#f5a524;--profit:#2fd47f;--loss:#ff5d5d;background:var(--bg);color:var(--text);font-family:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",Menlo,monospace;font-size:12.5px;border-radius:3px}
+.t-a .bar{display:flex;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.t-a .bar b{color:var(--accent);font-weight:600;letter-spacing:.06em}
+.t-a .bar .t{color:var(--muted)}
+.t-a .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));border-bottom:1px solid var(--line)}
+.t-a .cell{padding:9px 12px;border-right:1px solid var(--line)}
+.t-a .cell:last-child{border-right:0}
+.t-a .k{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.t-a .v{font-size:16px;margin-top:2px}
+.t-a .body{display:grid;grid-template-columns:minmax(0,1fr) 196px}
+.t-a .greeks{border-left:1px solid var(--line);padding:10px 12px}
+.t-a .greeks .r{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line)}
+.t-a .ctl{display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.t-a .pos{color:var(--profit)}.t-a .neg{color:var(--loss)}
+.t-a input[type=range]{--trk:linear-gradient(to right,#f5a524 var(--p,0%),#243042 var(--p,0%));--trk-h:2px;--trk-r:0;--th:#f5a524;--th-w:9px;--th-h:16px;--th-r:0}
+.t-a .grid line{stroke:#17202d;stroke-dasharray:2 4}
+.t-a .axis text{fill:var(--muted);font-size:11px}
+.t-a .zero{stroke:#3a475a}
+.t-a .expiry{fill:none;stroke:var(--accent);stroke-width:1.25;stroke-dasharray:5 4}
+.t-a .curve{fill:none;stroke-width:1.75}
+.t-a .curve.pos{stroke:var(--profit)}.t-a .curve.neg{stroke:var(--loss)}
+.t-a .area.pos{fill:var(--profit);opacity:.09}.t-a .area.neg{fill:var(--loss);opacity:.1}
+.t-a .spot{stroke:#7f8ea3;stroke-dasharray:2 3}
+.t-a .lbl{fill:var(--muted);font-size:11px}
+.t-a .bedot{color:var(--accent)}
+.t-a .cross{stroke:var(--accent)}.t-a .dot{fill:var(--accent)}
+.t-a .tip{background:var(--accent);color:#0a0d12;padding:2px 7px;font-size:11.5px;font-weight:600}
+
+.t-b{--bg:#fbf8f2;--ink:#1e1c19;--muted:#7a7366;--line:#e4ddcf;--accent:#134e8a;--profit:#0f766e;--loss:#b45427;--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;background:var(--bg);color:var(--ink);border-radius:6px}
+.t-b .nav{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:16px 28px;border-bottom:1px solid var(--line)}
+.t-b .w{font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:-.01em}
+.t-b .l{display:flex;gap:20px;color:var(--muted);font-size:13.5px}
+.t-b .art{padding:26px 28px 22px}
+.t-b .kick{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.t-b h3{font-family:var(--serif);font-size:clamp(23px,3.2vw,31px);line-height:1.16;font-weight:600;letter-spacing:-.015em;margin:8px 0;max-width:30ch;text-wrap:balance}
+.t-b .dek{color:#4f4a41;font-size:15.5px;max-width:58ch;margin:0 0 12px}
+.t-b .ctl{display:flex;align-items:center;gap:14px;margin-top:6px;font-size:13.5px;color:var(--muted)}
+.t-b .ctl .num{color:var(--ink);min-width:15ch;text-align:right}
+.t-b .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 24px;margin-top:16px}
+.t-b .stat{border-top:1px solid var(--ink);padding:8px 0 10px}
+.t-b .stat .k{font-size:12.5px;color:var(--muted)}
+.t-b .stat .v{font-family:var(--serif);font-size:25px;font-variant-numeric:tabular-nums lining-nums}
+.t-b .cap{font-size:12.5px;color:var(--muted);font-style:italic;margin:6px 0 0}
+.t-b .pos{color:var(--profit)}.t-b .neg{color:var(--loss)}
+.t-b input[type=range]{--trk:linear-gradient(to right,#134e8a var(--p,0%),#d9d1c0 var(--p,0%));--trk-h:3px;--th:#fbf8f2;--th-b:2px solid #134e8a}
+.t-b .grid .v{display:none}.t-b .grid .h{stroke:#ece6d9}
+.t-b .axis text{fill:var(--muted);font-size:12px}
+.t-b .zero{stroke:var(--ink)}
+.t-b .expiry{fill:none;stroke:#9a9385;stroke-width:1.25;stroke-dasharray:4 4}
+.t-b .curve{fill:none;stroke:var(--accent);stroke-width:2.25;stroke-linecap:round}
+.t-b .area.pos{fill:var(--profit);opacity:.14}.t-b .area.neg{fill:var(--loss);opacity:.14}
+.t-b .spot{stroke:#9a9385;stroke-dasharray:2 3}
+.t-b .lbl{fill:#4f4a41;font-size:12.5px;font-style:italic;font-family:var(--serif)}
+.t-b .bedot{color:var(--ink)}
+.t-b .cross{stroke:var(--ink);stroke-width:.75}.t-b .dot{fill:var(--bg);stroke:var(--accent);stroke-width:2}
+.t-b .tip{background:var(--ink);color:var(--bg);padding:3px 8px;border-radius:3px;font-size:12px}
+
+.t-c{--bg:#0b0b16;--text:#f1f2ff;--muted:#8d92b5;--line:rgba(255,255,255,.08);--a1:#8b7dff;--a2:#2ee6c5;--profit:#3ce6a8;--loss:#ff6f91;background:radial-gradient(900px 420px at 12% -10%,rgba(124,108,255,.3),transparent 60%),radial-gradient(700px 380px at 100% 110%,rgba(46,230,197,.17),transparent 60%),var(--bg);color:var(--text);font-family:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;border-radius:18px}
+.t-c .nav{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:16px 22px}
+.t-c .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.01em}
+.t-c .brand i{width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,var(--a1),var(--a2))}
+.t-c .links{display:flex;gap:4px;font-size:13.5px;color:var(--muted)}
+.t-c .links span{padding:6px 12px;border-radius:999px}
+.t-c .links .on{background:rgba(255,255,255,.09);color:var(--text)}
+.t-c .share{font-size:13px;font-weight:600;color:#0b0b16;background:linear-gradient(135deg,var(--a1),var(--a2));border-radius:999px;padding:7px 15px}
+.t-c .main{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;padding:6px 22px 4px;align-items:start}
+.t-c .eyebrow,.t-c .sub{font-size:13px;color:var(--muted)}
+.t-c .big{font-size:clamp(34px,5vw,46px);font-weight:650;letter-spacing:-.03em;line-height:1.05;margin:8px 0 6px}
+.t-c .pills{display:grid;gap:8px;margin-top:18px}
+.t-c .pill{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.045);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.t-c .pill b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.t-c .card{border-radius:16px;background:rgba(255,255,255,.035);border:1px solid var(--line);padding:8px 8px 2px}
+.t-c .ctl{display:flex;align-items:center;gap:14px;padding:14px 22px 20px;font-size:13px;color:var(--muted)}
+.t-c .ctl .num{color:var(--text);min-width:15ch;text-align:right}
+.t-c .pos{color:var(--profit)}.t-c .neg{color:var(--loss)}
+.t-c input[type=range]{--trk:linear-gradient(to right,#8b7dff,#2ee6c5 var(--p,0%),rgba(255,255,255,.13) var(--p,0%));--trk-h:6px;--trk-r:999px;--th:#fff;--th-w:18px;--th-h:18px;--th-s:0 0 0 4px rgba(139,125,255,.25),0 0 18px rgba(46,230,197,.7)}
+.t-c .grid .v{display:none}.t-c .grid .h{stroke:rgba(255,255,255,.06)}
+.t-c .axis text{fill:var(--muted);font-size:11.5px}
+.t-c .zero{stroke:rgba(255,255,255,.28)}
+.t-c .expiry{fill:none;stroke:rgba(255,255,255,.4);stroke-width:1.25;stroke-dasharray:3 5}
+.t-c .curve{fill:none;stroke-width:3;stroke-linecap:round}
+.t-c .curve.pos{stroke:var(--profit)}.t-c .curve.neg{stroke:var(--loss)}
+.t-c .glow.pos{filter:drop-shadow(0 0 7px rgba(60,230,168,.6))}
+.t-c .glow.neg{filter:drop-shadow(0 0 7px rgba(255,111,145,.55))}
+.t-c .area.pos{fill:url(#gp-c)}.t-c .area.neg{fill:url(#gn-c)}
+.t-c .spot{stroke:rgba(255,255,255,.3);stroke-dasharray:2 4}
+.t-c .lbl{fill:var(--muted);font-size:11.5px}
+.t-c .bedot{color:#fff}
+.t-c .cross{stroke:rgba(255,255,255,.5)}.t-c .dot{fill:#fff;filter:drop-shadow(0 0 6px #fff)}
+.t-c .tip{background:rgba(20,20,36,.94);border:1px solid rgba(255,255,255,.14);color:var(--text);padding:5px 10px;border-radius:10px;font-size:12px}
+
+.head .tag.wide{width:auto;padding:0 11px;border-radius:999px}
+.t-d{--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",Menlo,monospace;border-radius:5px;background:var(--bg);color:var(--ink)}
+.t-d[data-theme=paper]{--bg:#fbf8f2;--panel:#f4efe4;--ink:#1e1c19;--soft:#4f4a41;--muted:#7a7366;--line:#ddd5c5;--grid:#ebe5d8;--zero:#1e1c19;--accent:#a55a00;--profit:#0f766e;--loss:#b4432a}
+.t-d[data-theme=terminal]{--bg:#0a0d12;--panel:#0e131b;--ink:#d3dce9;--soft:#aab6c8;--muted:#6a7a92;--line:#1e2836;--grid:#17202d;--zero:#3a475a;--accent:#f5a524;--profit:#2fd47f;--loss:#ff5d5d}
+.t-d,.t-d *{transition:background-color .35s,color .35s,border-color .35s,fill .35s,stroke .35s,opacity .12s}
+.t-d .top{display:flex;align-items:center;gap:10px 22px;flex-wrap:wrap;padding:14px 24px;border-bottom:1px solid var(--line)}
+.t-d .w{font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:-.01em}
+.t-d .l{display:flex;gap:20px;color:var(--muted);font-size:13.5px;margin-left:auto}
+.t-d .sw{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.t-d .sw button{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.t-d .sw button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.t-d .lede{padding:22px 24px 18px}
+.t-d .kick{font:600 11.5px/1.4 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+.t-d h3{font-family:var(--serif);font-size:clamp(23px,3.2vw,31px);line-height:1.16;font-weight:600;letter-spacing:-.015em;margin:8px 0;max-width:30ch;text-wrap:balance}
+.t-d .dek{color:var(--soft);font-size:15.5px;max-width:58ch;margin:0}
+.t-d .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.t-d .cell{padding:10px 14px;border-right:1px solid var(--line)}
+.t-d .cell:last-child{border-right:0}
+.t-d .k{font:11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.t-d .v{font:17px/1.3 var(--mono);margin-top:2px}
+.t-d .body{display:grid;grid-template-columns:minmax(0,1fr) 200px}
+.t-d .greeks{border-left:1px solid var(--line);padding:12px 14px;font:12.5px/1.4 var(--mono)}
+.t-d .greeks .r{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line)}
+.t-d .ctl{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--panel);border-top:1px solid var(--line);font:12.5px/1.4 var(--mono)}
+.t-d .cap{font:italic 12.5px/1.5 var(--serif);color:var(--muted);margin:0;padding:10px 24px 14px;border-top:1px solid var(--line)}
+.t-d .pos{color:var(--profit)}.t-d .neg{color:var(--loss)}
+.t-d input[type=range]{--trk:linear-gradient(to right,var(--accent) var(--p,0%),var(--line) var(--p,0%));--trk-h:2px;--trk-r:0;--th:var(--accent);--th-w:9px;--th-h:16px;--th-r:0}
+.t-d .grid .v{display:none}.t-d .grid .h{stroke:var(--grid)}
+.t-d .axis text{fill:var(--muted);font:11px var(--mono)}
+.t-d .zero{stroke:var(--zero)}
+.t-d .expiry{fill:none;stroke:var(--accent);stroke-width:1.25;stroke-dasharray:5 4}
+.t-d .curve{fill:none;stroke-width:2;stroke-linecap:round}
+.t-d .curve.pos{stroke:var(--profit)}.t-d .curve.neg{stroke:var(--loss)}
+.t-d .area.pos{fill:var(--profit);opacity:.11}.t-d .area.neg{fill:var(--loss);opacity:.11}
+.t-d .spot{stroke:var(--muted);stroke-dasharray:2 3}
+.t-d .lbl{fill:var(--soft);font:italic 12.5px var(--serif)}
+.t-d .bedot{color:var(--accent)}
+.t-d .cross{stroke:var(--accent)}.t-d .dot{fill:var(--bg);stroke:var(--accent);stroke-width:2}
+.t-d .tip{background:var(--ink);color:var(--bg);padding:3px 8px;border-radius:3px;font:600 11.5px var(--mono)}
+@media (max-width:760px){
+  .t-d .body{grid-template-columns:1fr}
+  .t-d .greeks{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  .t-d .greeks .k{grid-column:1/-1}
+  .t-d .l{display:none}
+  .t-d .sw{margin-left:auto}
+  .t-d .top,.t-d .lede,.t-d .cap{padding-left:16px;padding-right:16px}
+}
+
+@media (max-width:760px){
+  .t-a .body{grid-template-columns:1fr}
+  .t-a .greeks{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  .t-a .greeks .k{grid-column:1/-1}
+  .t-b .nav,.t-b .art{padding-left:18px;padding-right:18px}
+  .t-c .main{grid-template-columns:1fr}
+  .t-c .pills{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="intro">
+    <h1>Looks for the options tool</h1>
+    <p>The first panel merges A and B into one design with a light and a dark mode; flip its switch. The original three follow. Drag any date slider or hover a chart, and every panel moves together.</p>
+    <button class="play" type="button">Play time decay</button>
+  </div>
+
+  <section class="look">
+    <div class="head"><span class="tag wide">A + B</span><h2>Paper and Terminal as one design</h2><span class="d">Same layout and type in both. Only the lighting changes.</span></div>
+    <div class="frame t-d" data-id="d" data-theme="paper">
+      <div class="top">
+        <span class="w">blessedshoh</span>
+        <span class="l"><span>Research</span><span>Tools</span><span>About</span></span>
+        <span class="sw" role="group" aria-label="Theme"><button type="button" data-set="paper" aria-pressed="true">Paper</button><button type="button" data-set="terminal" aria-pressed="false">Terminal</button></span>
+      </div>
+      <div class="lede">
+        <div class="kick">Figure 1 · Long call · XYZ 180 · ×10</div>
+        <h3>The price has to rise <span data-k="bepct"></span> for this call to pay off.</h3>
+        <p class="dek" data-k="dek"></p>
+      </div>
+      <div class="strip">
+        <div class="cell"><div class="k">Net debit</div><div class="v num" data-k="debit"></div></div>
+        <div class="cell"><div class="k">Max loss</div><div class="v num neg" data-k="maxloss"></div></div>
+        <div class="cell"><div class="k">B/E at expiry</div><div class="v num" data-k="be"></div></div>
+        <div class="cell"><div class="k">P(profit)</div><div class="v num" data-k="pop"></div></div>
+        <div class="cell"><div class="k">P/L unch</div><div class="v num" data-k="unch"></div></div>
+      </div>
+      <div class="body">
+        <div class="chart"><div class="tip hov"></div></div>
+        <div class="greeks">
+          <div class="k">Position greeks</div>
+          <div class="r"><span>DELTA</span><span class="num" data-k="delta"></span></div>
+          <div class="r"><span>GAMMA</span><span class="num" data-k="gamma"></span></div>
+          <div class="r"><span>THETA $/D</span><span class="num" data-k="theta"></span></div>
+          <div class="r"><span>VEGA $/PT</span><span class="num" data-k="vega"></span></div>
+        </div>
+      </div>
+      <div class="ctl"><span class="k">Date</span><input type="range" min="0" max="30" step="0.1" value="0" aria-label="Date"><span class="num" data-k="left"></span></div>
+      <p class="cap">Black-Scholes value at 64% implied volatility and a 4% rate. Illustrative position, not a real quote.</p>
+    </div>
+  </section>
+
+  <section class="look">
+    <div class="head"><span class="tag">A</span><h2>Terminal</h2><span class="d">Dense and monospace, with everything on screen at once.</span></div>
+    <div class="frame t-a" data-id="a">
+      <div class="bar"><span><b>BLESSEDSHOH</b>/OPTIONS</span><span class="t">XYZ 180C &nbsp; LONG 10 &nbsp; IV 64.0% &nbsp; R 4.0%</span><span class="num" data-k="tminus"></span></div>
+      <div class="strip">
+        <div class="cell"><div class="k">Net debit</div><div class="v num" data-k="debit"></div></div>
+        <div class="cell"><div class="k">Max loss</div><div class="v num neg" data-k="maxloss"></div></div>
+        <div class="cell"><div class="k">B/E at expiry</div><div class="v num" data-k="be"></div></div>
+        <div class="cell"><div class="k">P(profit)</div><div class="v num" data-k="pop"></div></div>
+        <div class="cell"><div class="k">P/L unch</div><div class="v num" data-k="unch"></div></div>
+      </div>
+      <div class="body">
+        <div class="chart"><div class="tip hov"></div></div>
+        <div class="greeks">
+          <div class="k">Position greeks</div>
+          <div class="r"><span>DELTA</span><span class="num" data-k="delta"></span></div>
+          <div class="r"><span>GAMMA</span><span class="num" data-k="gamma"></span></div>
+          <div class="r"><span>THETA $/D</span><span class="num" data-k="theta"></span></div>
+          <div class="r"><span>VEGA $/PT</span><span class="num" data-k="vega"></span></div>
+        </div>
+      </div>
+      <div class="ctl"><span class="k">Date</span><input type="range" min="0" max="30" step="0.1" value="0" aria-label="Date"><span class="num" data-k="left"></span></div>
+    </div>
+  </section>
+
+  <section class="look">
+    <div class="head"><span class="tag">B</span><h2>Research paper</h2><span class="d">Reads like a published note. The chart is the figure.</span></div>
+    <div class="frame t-b" data-id="b">
+      <div class="nav"><span class="w">blessedshoh</span><span class="l"><span>Research</span><span>Tools</span><span>About</span></span></div>
+      <div class="art">
+        <div class="kick">Figure 1 · Long call, strike 180</div>
+        <h3>The price has to rise <span data-k="bepct"></span> for this call to pay off.</h3>
+        <p class="dek" data-k="dek"></p>
+        <div class="chart"><div class="tip hov"></div></div>
+        <div class="ctl"><span>Date</span><input type="range" min="0" max="30" step="0.1" value="0" aria-label="Date"><span class="num" data-k="left"></span></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Net debit</div><div class="v" data-k="debit"></div></div>
+          <div class="stat"><div class="k">Break-even at expiry</div><div class="v" data-k="be"></div></div>
+          <div class="stat"><div class="k">Chance of profit</div><div class="v" data-k="pop"></div></div>
+          <div class="stat"><div class="k">P/L if price is unchanged</div><div class="v" data-k="unch"></div></div>
+        </div>
+        <p class="cap">Black-Scholes value at 64% implied volatility and a 4% rate. Illustrative position, not a real quote.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="look">
+    <div class="head"><span class="tag">C</span><h2>Studio</h2><span class="d">Dark and soft, built around one big number.</span></div>
+    <div class="frame t-c" data-id="c">
+      <div class="nav"><span class="brand"><i></i>blessedshoh</span><span class="links"><span class="on">Options</span><span>Research</span><span>Projects</span></span><span class="share">Share</span></div>
+      <div class="main">
+        <div>
+          <div class="eyebrow">Long call · XYZ 180 · ×10</div>
+          <div class="big num" data-k="unch"></div>
+          <div class="sub">if the price stays at 166.00</div>
+          <div class="pills">
+            <div class="pill"><span>Net debit</span><b data-k="debit"></b></div>
+            <div class="pill"><span>Break-even</span><b data-k="be"></b></div>
+            <div class="pill"><span>Chance of profit</span><b data-k="pop"></b></div>
+          </div>
+        </div>
+        <div class="card"><div class="chart"><div class="tip hov"></div></div></div>
+      </div>
+      <div class="ctl"><span>Date</span><input type="range" min="0" max="30" step="0.1" value="0" aria-label="Date"><span class="num" data-k="left"></span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+const P={S0:166,K:180,iv:.64,r:.04,T0:30,qty:10,mult:100};
+const X0=140,X1=214,Y0=-11000,Y1=32000,XT=[140,150,160,170,180,190,200,210],YT=[0,10000,20000,30000];
+const erf=x=>{const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);return s*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x))};
+const N=x=>.5*(1+erf(x/Math.SQRT2)),pdf=x=>Math.exp(-.5*x*x)/Math.sqrt(2*Math.PI);
+function bs(S,d){
+  const T=Math.max(d,.01)/365,rt=Math.sqrt(T),sq=P.iv*rt,d1=(Math.log(S/P.K)+(P.r+.5*P.iv*P.iv)*T)/sq,d2=d1-sq,df=Math.exp(-P.r*T);
+  return{price:S*N(d1)-P.K*df*N(d2),delta:N(d1),gamma:pdf(d1)/(S*sq),theta:(-S*pdf(d1)*P.iv/(2*rt)-P.r*P.K*df*N(d2))/365,vega:S*pdf(d1)*rt/100};
+}
+const size=P.qty*P.mult,prem=bs(P.S0,P.T0).price,debit=prem*size,be=P.K+prem,Ty=P.T0/365;
+const pop=N((Math.log(P.S0/be)+(P.r-.5*P.iv*P.iv)*Ty)/(P.iv*Math.sqrt(Ty)));
+const pl=(S,d)=>(d<=0?Math.max(S-P.K,0):bs(S,d).price)*size-debit;
+const XS=[];for(let i=0;i<=96;i++)XS.push(X0+(X1-X0)*i/96);XS.push(P.K);XS.sort((a,b)=>a-b);
+
+const M='−';
+const money=v=>'$'+Math.abs(Math.round(v)).toLocaleString('en-US');
+const signed=v=>{const r=Math.round(v);return r===0?'$0':(r>0?'+':M)+money(r)};
+const sg=(v,dp)=>{const a=Math.abs(v).toFixed(dp);return(parseFloat(a)===0?'':v>0?'+':M)+a};
+const leftLabel=d=>{const n=Math.round(d);return n>=P.T0?'Today · '+P.T0+' days left':n<=0?'Expiry':n+(n===1?' day left':' days left')};
+const set=(f,k,v)=>f.querySelectorAll('[data-k="'+k+'"]').forEach(e=>{e.textContent=v});
+const tone=(f,k,v)=>f.querySelectorAll('[data-k="'+k+'"]').forEach(e=>{e.classList.toggle('pos',v>.5);e.classList.toggle('neg',v<-.5)});
+
+const frames=[...document.querySelectorAll('.frame')];
+const sliders=[...document.querySelectorAll('.frame input[type=range]')];
+let elapsed=0,raf=0;
+
+function build(f){
+  const box=f.querySelector('.chart'),id=f.dataset.id;
+  const W=Math.max(300,Math.floor(box.clientWidth)),H=Math.round(Math.max(230,Math.min(340,W*.44)));
+  const l=50,r=16,t=18,b=28;
+  const x=v=>l+(v-X0)/(X1-X0)*(W-l-r),y=v=>t+(Y1-v)/(Y1-Y0)*(H-t-b),xi=p=>X0+(p-l)/(W-l-r)*(X1-X0);
+  const n=v=>v.toFixed(1),y0=y(0);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" height="'+H+'" role="img" aria-label="Profit and loss by price"><defs>'+
+    '<clipPath id="up-'+id+'"><rect x="0" y="0" width="'+W+'" height="'+n(y0)+'"/></clipPath>'+
+    '<clipPath id="dn-'+id+'"><rect x="0" y="'+n(y0)+'" width="'+W+'" height="'+n(H-y0)+'"/></clipPath>'+
+    '<linearGradient id="gp-'+id+'" gradientUnits="userSpaceOnUse" x1="0" y1="'+t+'" x2="0" y2="'+n(y0)+'"><stop offset="0" stop-color="#3ce6a8" stop-opacity=".45"/><stop offset="1" stop-color="#3ce6a8" stop-opacity="0"/></linearGradient>'+
+    '<linearGradient id="gn-'+id+'" gradientUnits="userSpaceOnUse" x1="0" y1="'+(H-b)+'" x2="0" y2="'+n(y0)+'"><stop offset="0" stop-color="#ff6f91" stop-opacity=".45"/><stop offset="1" stop-color="#ff6f91" stop-opacity="0"/></linearGradient>'+
+    '</defs><g class="grid">';
+  for(const v of YT)s+='<line class="h" x1="'+l+'" x2="'+(W-r)+'" y1="'+n(y(v))+'" y2="'+n(y(v))+'"/>';
+  for(const v of XT)s+='<line class="v" x1="'+n(x(v))+'" x2="'+n(x(v))+'" y1="'+t+'" y2="'+(H-b)+'"/>';
+  s+='</g><g class="axis">';
+  for(const v of YT)s+='<text x="'+(l-8)+'" y="'+n(y(v)+4)+'" text-anchor="end">'+(v?'$'+v/1000+'k':'$0')+'</text>';
+  for(const v of XT)s+='<text x="'+n(x(v))+'" y="'+(H-8)+'" text-anchor="middle">'+v+'</text>';
+  s+='</g><path class="area pos" clip-path="url(#up-'+id+')"/><path class="area neg" clip-path="url(#dn-'+id+')"/>'+
+    '<line class="zero" x1="'+l+'" x2="'+(W-r)+'" y1="'+n(y0)+'" y2="'+n(y0)+'"/>'+
+    '<line class="spot" x1="'+n(x(P.S0))+'" x2="'+n(x(P.S0))+'" y1="'+t+'" y2="'+(H-b)+'"/>'+
+    '<text class="lbl" x="'+n(x(P.S0)+6)+'" y="'+(t+10)+'">Price now '+P.S0+'</text>'+
+    '<path class="expiry" d="M'+n(x(X0))+' '+n(y(-debit))+'L'+n(x(P.K))+' '+n(y(-debit))+'L'+n(x(X1))+' '+n(y((X1-P.K)*size-debit))+'"/>'+
+    '<text class="lbl" x="'+(l+6)+'" y="'+n(y(-debit)+15)+'">At expiry</text>'+
+    '<g class="glow pos"><path class="curve pos" clip-path="url(#up-'+id+')"/></g>'+
+    '<g class="glow neg"><path class="curve neg" clip-path="url(#dn-'+id+')"/></g>'+
+    '<circle class="bedot" cx="'+n(x(be))+'" cy="'+n(y0)+'" r="3.5"/>'+
+    (x(be)+140>W?'<text class="lbl" text-anchor="end" x="'+(W-4)+'" y="'+n(y0+16)+'">':'<text class="lbl" x="'+n(x(be)+8)+'" y="'+n(y0+16)+'">')+'Break-even '+be.toFixed(2)+'</text>'+
+    '<text class="lbl now" text-anchor="end"></text>'+
+    '<line class="cross hov" y1="'+t+'" y2="'+(H-b)+'"/><circle class="dot hov" r="4.5"/></svg>';
+  const old=box.querySelector('svg');if(old)old.remove();
+  box.insertAdjacentHTML('afterbegin',s);
+  const svg=box.querySelector('svg');
+  f._c={W,x,y,y0,box,tip:box.querySelector('.tip'),q:c=>svg.querySelector(c)};
+  svg.addEventListener('pointermove',e=>{
+    const rc=svg.getBoundingClientRect();
+    f._h=Math.min(X1,Math.max(X0,xi((e.clientX-rc.left)*W/rc.width)));
+    box.classList.add('on');hover(f);
+  });
+  svg.addEventListener('pointerleave',()=>{f._h=null;box.classList.remove('on')});
+}
+
+function hover(f){
+  const c=f._c,S=f._h,v=pl(S,P.T0-elapsed),px=c.x(S),py=c.y(v);
+  const cr=c.q('.cross'),dt=c.q('.dot');
+  cr.setAttribute('x1',px.toFixed(1));cr.setAttribute('x2',px.toFixed(1));
+  dt.setAttribute('cx',px.toFixed(1));dt.setAttribute('cy',py.toFixed(1));
+  c.tip.textContent='$'+S.toFixed(2)+'  ·  '+signed(v);
+  c.tip.style.left=Math.min(c.W-80,Math.max(80,px))+'px';c.tip.style.top=py+'px';
+}
+
+function update(f){
+  const c=f._c,d=P.T0-elapsed,nd=Math.round(d);let p='';
+  for(let i=0;i<XS.length;i++)p+=(i?'L':'M')+c.x(XS[i]).toFixed(1)+' '+c.y(pl(XS[i],d)).toFixed(1);
+  const a=p+'L'+c.x(X1).toFixed(1)+' '+c.y0.toFixed(1)+'L'+c.x(X0).toFixed(1)+' '+c.y0.toFixed(1)+'Z';
+  c.q('.curve.pos').setAttribute('d',p);c.q('.curve.neg').setAttribute('d',p);
+  c.q('.area.pos').setAttribute('d',a);c.q('.area.neg').setAttribute('d',a);
+  const now=c.q('.lbl.now');
+  now.setAttribute('x',(c.x(203)-8).toFixed(1));now.setAttribute('y',(c.y(pl(203,d))-10).toFixed(1));
+  now.textContent=nd<=0?'':leftLabel(d);
+  const u=pl(P.S0,d),g=bs(P.S0,d);
+  set(f,'unch',signed(u));tone(f,'unch',u);
+  set(f,'left',leftLabel(d));set(f,'tminus','T-'+nd+'D');
+  set(f,'delta',sg(g.delta*size,0));set(f,'gamma',sg(g.gamma*size,1));
+  set(f,'theta',sg(g.theta*size,0));set(f,'vega',sg(g.vega*size,0));
+  set(f,'dek',nd<=0
+    ?'At expiry the call pays only above '+P.K+'. Below it the full '+money(debit)+' is lost.'
+    :'With '+nd+(nd===1?' day':' days')+' left, it loses about '+money(-g.theta*size)+' a day if the price stands still.');
+  if(f._h!=null)hover(f);
+}
+
+function render(){
+  frames.forEach(update);
+  sliders.forEach(s=>{s.value=elapsed;s.style.setProperty('--p',(elapsed/P.T0*100).toFixed(1)+'%')});
+}
+const stop=()=>{cancelAnimationFrame(raf);raf=0};
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function play(){
+  stop();
+  const t0=performance.now(),D=2600,hold=500;
+  const step=now=>{
+    const e=now-t0;
+    if(e>=2*D+hold){elapsed=0;render();raf=0;return}
+    elapsed=e<D?ease(e/D)*P.T0:e<D+hold?P.T0:(1-ease((e-D-hold)/D))*P.T0;
+    render();raf=requestAnimationFrame(step);
+  };
+  raf=requestAnimationFrame(step);
+}
+
+frames.forEach(f=>{
+  set(f,'debit',money(debit));set(f,'maxloss',M+money(debit));set(f,'be',be.toFixed(2));
+  set(f,'pop',(pop*100).toFixed(1)+'%');set(f,'bepct',((be/P.S0-1)*100).toFixed(1)+'%');
+  build(f);
+});
+render();
+sliders.forEach(s=>s.addEventListener('input',()=>{stop();elapsed=+s.value;render()}));
+document.querySelector('.play').addEventListener('click',play);
+new ResizeObserver(()=>{
+  let changed=false;
+  frames.forEach(f=>{const w=Math.max(300,Math.floor(f.querySelector('.chart').clientWidth));if(Math.abs(f._c.W-w)>1){build(f);changed=true}});
+  if(changed)render();
+}).observe(document.querySelector('.page'));
+document.querySelectorAll('.t-d .sw button').forEach(b=>b.addEventListener('click',()=>{
+  const f=b.closest('.frame');f.dataset.theme=b.dataset.set;
+  f.querySelectorAll('.sw button').forEach(o=>o.setAttribute('aria-pressed',o===b));
+}));
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setTimeout(play,900);
+})();
+</script>
+</body>
+</html>

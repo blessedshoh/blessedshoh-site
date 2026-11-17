@@ -1,0 +1,34 @@
+---
+import "@blessedshoh/kit/tokens.css";
+import SiteHeader from "@blessedshoh/kit/SiteHeader.svelte";
+import { themeBootScript } from "@blessedshoh/kit/theme";
+
+interface Props {
+  title: string;
+  description: string;
+  links?: { title: string; url: string; current?: boolean }[];
+}
+
+const { title, description, links = [] } = Astro.props;
+// Tools open in Terminal. A visitor's own choice, if they made one, wins.
+const defaultTheme = "terminal";
+---
+
+<!doctype html>
+<html lang="en" data-theme={defaultTheme}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script is:inline set:html={themeBootScript}></script>
+  </head>
+  <body>
+    <SiteHeader client:load section="Options" links={links} theme={defaultTheme} />
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

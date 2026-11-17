@@ -1,0 +1,10 @@
+{
+  "name": "blessedshoh-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:options": "pnpm --filter options dev",
+    "build:options": "pnpm --filter options build",
+    "test": "pnpm --filter options test"
+  }
+}
