@@ -1,0 +1,221 @@
+---
+import { env } from "cloudflare:workers";
+import Admin from "../../layouts/Admin.astro";
+import { numbers } from "../../lib/admin.ts";
+
+const RANGES = [7, 30, 90];
+const asked = Number(Astro.url.searchParams.get("days"));
+const days = RANGES.includes(asked) ? asked : 30;
+const stats = await numbers(env.DB, days);
+
+const total = stats.series.reduce((sum, d) => sum + d.n, 0);
+const peak = Math.max(1, ...stats.series.map((d) => d.n));
+const average = total / days;
+
+// Visits per day as bars. Drawn here so the page needs no chart code.
+const W = 760, H = 200, PAD_L = 34, PAD_B = 22, PAD_T = 10;
+const step = (W - PAD_L) / days;
+const barW = Math.max(2, step * 0.7);
+const y = (n: number) => PAD_T + (1 - n / peak) * (H - PAD_T - PAD_B);
+const tickEvery = days <= 7 ? 1 : days <= 30 ? 5 : 15;
+const label = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+const EVENT_LABELS: Record<string, string> = {
+  view: "Page views",
+  priced: "Positions priced",
+  shared: "Links copied",
+  link_opened: "Shared links opened",
+  risk: "Risk view used",
+  tree: "Binomial tree used",
+  chain: "Chain or arbitrage used",
+  sketch: "Payoff sketcher used",
+  compare: "Compare used",
+};
+const tools = [...new Set(stats.events.map((e) => e.tool))];
+const pageMax = Math.max(1, ...stats.pages.map((p) => p.n));
+const refMax = Math.max(1, ...stats.referrers.map((r) => r.n));
+---
+
+<Admin title="Numbers">
+  <div class="bar">
+    <p class="help">Daily totals counted by the site itself. No cookies, no visitor identifiers, nothing sent to an outside tracker. Automated traffic is left out.</p>
+    <div class="seg" role="group" aria-label="Period">
+      {RANGES.map((r) => (
+        <a href={`/admin/numbers?days=${r}`} aria-current={r === days ? "page" : undefined}>{r} days</a>
+      ))}
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="head">
+      <h2>Visits per day</h2>
+      <span class="k num">{total.toLocaleString("en-US")} total · {average.toFixed(1)} a day</span>
+    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Visits per day over the last ${days} days, ${total} in total`}>
+      {[0, 0.5, 1].map((f) => (
+        <g>
+          <line x1={PAD_L} x2={W} y1={y(peak * f)} y2={y(peak * f)} stroke="var(--grid)" />
+          <text x={PAD_L - 8} y={y(peak * f) + 4} text-anchor="end" class="axis">{Math.round(peak * f)}</text>
+        </g>
+      ))}
+      {stats.series.map((d, i) => (
+        <g>
+          <rect x={PAD_L + i * step + (step - barW) / 2} y={y(d.n)} width={barW} height={Math.max(0, H - PAD_B - y(d.n))} fill="var(--accent)" rx="1">
+            <title>{label(d.day)}: {d.n}</title>
+          </rect>
+          {(days - 1 - i) % tickEvery === 0 && (
+            <text x={i === days - 1 ? W : PAD_L + i * step + step / 2} y={H - 6} text-anchor={i === days - 1 ? "end" : "middle"} class="axis">{label(d.day)}</text>
+          )}
+        </g>
+      ))}
+    </svg>
+  </section>
+
+  <div class="two">
+    <section class="panel">
+      <h2>Top pages</h2>
+      {stats.pages.length === 0 ? <p class="empty">No visits yet.</p> : (
+        <ul class="bars">
+          {stats.pages.map((p) => (
+            <li style={`--w:${((p.n / pageMax) * 100).toFixed(1)}%`}><span class="name num">{p.path}</span><b class="num">{p.n.toLocaleString("en-US")}</b></li>
+          ))}
+        </ul>
+      )}
+    </section>
+    <section class="panel">
+      <h2>Where visitors came from</h2>
+      {stats.referrers.length === 0 ? <p class="empty">No outside sites yet. Direct visits and links within blessedshoh.dev are not listed.</p> : (
+        <ul class="bars">
+          {stats.referrers.map((r) => (
+            <li style={`--w:${((r.n / refMax) * 100).toFixed(1)}%`}><span class="name num">{r.referrer}</span><b class="num">{r.n.toLocaleString("en-US")}</b></li>
+          ))}
+        </ul>
+      )}
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Tool usage</h2>
+    {tools.length === 0 ? <p class="empty">No tool activity yet.</p> : tools.map((tool) => (
+      <table>
+        <thead><tr><th>{tool}</th><th class="r">{days} days</th></tr></thead>
+        <tbody>
+          {stats.events.filter((e) => e.tool === tool).map((e) => (
+            <tr><td>{EVENT_LABELS[e.event] ?? e.event}</td><td class="r num">{e.n.toLocaleString("en-US")}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    ))}
+    <p class="help note">Each feature counts once per page view, so a visitor dragging sliders for ten minutes counts as one use.</p>
+  </section>
+</Admin>
+
+<style>
+  .bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .bar .help {
+    margin: 0;
+    max-width: 66ch;
+  }
+  .seg a {
+    font: 600 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 9px 11px;
+    color: var(--muted);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .seg a[aria-current="page"] {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 6px;
+  }
+  .axis {
+    font: 500 10px var(--mono);
+    fill: var(--muted);
+  }
+  .two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 22px;
+    margin-top: 22px;
+  }
+  .two .panel {
+    margin-top: 0;
+  }
+  .bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .bars li {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 10px;
+    font-size: 13px;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bars li::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .bars .name,
+  .bars b {
+    position: relative;
+  }
+  .bars .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bars b {
+    font-weight: 500;
+  }
+  table + table {
+    margin-top: 18px;
+  }
+  th:first-child {
+    color: var(--accent);
+  }
+  .r {
+    text-align: right;
+  }
+  .note {
+    margin: 14px 0 0;
+  }
+  @media (max-width: 860px) {
+    .bar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .two {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

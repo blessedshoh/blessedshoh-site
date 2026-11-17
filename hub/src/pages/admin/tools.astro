@@ -1,0 +1,230 @@
+---
+import { env } from "cloudflare:workers";
+import builtIn from "../../../../options/src/data/settings.json";
+import Admin from "../../layouts/Admin.astro";
+import { optionsSettings, saveOptionsExample, saveOptionsSwitches } from "../../lib/admin.ts";
+import { Invalid, MAX_LEGS, OPTION_FLAGS, bannerFromForm, exampleFromForm, flagsFromForm, type ExampleInput } from "../../lib/validate.ts";
+
+const who = Astro.locals.admin ?? "";
+let problem: string | null = null;
+let typed: FormData | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action"));
+  try {
+    if (action === "switches") {
+      await saveOptionsSwitches(env.DB, who, flagsFromForm(form), bannerFromForm(form));
+      return Astro.redirect("/admin/tools?done=switches", 303);
+    }
+    if (action === "reset") {
+      await saveOptionsExample(env.DB, who, env.API_BASE, null);
+      return Astro.redirect("/admin/tools?done=reset", 303);
+    }
+    if (action === "example") {
+      await saveOptionsExample(env.DB, who, env.API_BASE, exampleFromForm(form));
+      return Astro.redirect("/admin/tools?done=example", 303);
+    }
+  } catch (error) {
+    // A bad value, or the pricing API refusing or not answering: nothing is saved.
+    problem = error instanceof Invalid ? error.message : `Not saved. ${(error as Error).message}`;
+    if ((error as Error).name === "TimeoutError") problem = "Not saved. The pricing API did not answer in 45 seconds. Try again in a minute.";
+    typed = form;
+  }
+}
+
+const NOTICES: Record<string, string> = {
+  switches: "Saved. The options tool follows on its next page load.",
+  example: "Default example priced and stored. Visitors see it at once, even while the API sleeps.",
+  reset: "Back to the built-in example.",
+};
+const notice = NOTICES[Astro.url.searchParams.get("done") ?? ""] ?? null;
+
+const settings = await optionsSettings(env.DB);
+const flags = { ...builtIn.flags, ...settings.flags } as Record<string, boolean>;
+const example: ExampleInput = settings.example ?? {
+  position: { ...builtIn.default_position, exercise: builtIn.default_position.exercise === "american" ? "american" : "european" } as ExampleInput["position"],
+  range_pct: builtIn.default_range_pct,
+  risk_defaults: builtIn.risk_defaults,
+};
+
+// Values for the form: what was just typed if saving failed, otherwise what is stored.
+const pct = (x: number) => +(x * 100).toFixed(4);
+const v = (name: string, stored: string | number | undefined) => (typed ? String(typed.get(name) ?? "") : String(stored ?? ""));
+const p = example.position;
+const legs = Array.from({ length: MAX_LEGS }, (_, i) => p.legs[i]);
+const summary = (settings.example?.first as { summary?: { entry_cost?: number } } | undefined)?.summary;
+const money = (x: number) => `${x < 0 ? "−" : ""}$${Math.abs(x).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+---
+
+<Admin title="Tools" notice={notice} problem={problem}>
+  <p class="help intro">Settings for the options tool at <a href="https://options.blessedshoh.dev" target="_blank" rel="noopener">options.blessedshoh.dev</a>. It reads them on every page load.</p>
+
+  <form method="post" class="panel">
+    <h2>Features</h2>
+    <div class="flags">
+      {OPTION_FLAGS.map((f) => (
+        <label class="check">
+          <input type="checkbox" name={`flag_${f.key}`} checked={typed ? typed.get(`flag_${f.key}`) !== null : flags[f.key] !== false} />
+          <span><b>{f.label}</b><br /><span class="help">{f.help}</span></span>
+        </label>
+      ))}
+    </div>
+    <label class="row notice">
+      <span>Notice banner</span>
+      <input class="field" name="banner" maxlength="200" value={v("banner", settings.banner ?? "")} placeholder="Empty means no banner" />
+      <span class="help">A one-line message above the tool, for example planned maintenance. Plain text, up to 200 characters.</span>
+    </label>
+    <div class="btns"><button class="btn solid" name="action" value="switches">Save features</button></div>
+  </form>
+
+  <form method="post" class="panel" data-pricing>
+    <div class="head">
+      <h2>Default example</h2>
+      <span class="k">
+        {settings.example ? `Custom · saved ${settings.example.saved_at.slice(0, 16).replace("T", " ")}` : "Built-in"}
+        {summary?.entry_cost !== undefined && ` · ${summary.entry_cost >= 0 ? "debit" : "credit"} ${money(Math.abs(summary.entry_cost))}`}
+      </span>
+    </div>
+    <p class="help">The position a visitor sees first. On save it is priced once on the Python API and the answer is stored, so the first view never waits for the server.</p>
+
+    <div class="cols">
+      <label class="row"><span>Label</span><input class="field" name="label" maxlength="12" value={v("label", p.label)} /></label>
+      <label class="row"><span>Price</span><input class="field" name="spot" inputmode="decimal" value={v("spot", p.spot)} required /></label>
+      <label class="row"><span>Rate %</span><input class="field" name="rate" inputmode="decimal" value={v("rate", pct(p.rate))} required /></label>
+      <label class="row"><span>Dividend %</span><input class="field" name="div_yield" inputmode="decimal" value={v("div_yield", pct(p.div_yield))} required /></label>
+      <label class="row">
+        <span>Exercise</span>
+        <select class="field" name="exercise">
+          <option value="european" selected={v("exercise", p.exercise) !== "american"}>European</option>
+          <option value="american" selected={v("exercise", p.exercise) === "american"}>American</option>
+        </select>
+      </label>
+      <label class="row"><span>Range ± %</span><input class="field" name="range_pct" inputmode="decimal" value={v("range_pct", pct(example.range_pct))} required /></label>
+    </div>
+
+    <table class="legs">
+      <thead><tr><th>Leg</th><th>Kind</th><th>Quantity</th><th>Strike</th><th>Days</th><th>Vol %</th></tr></thead>
+      <tbody>
+        {legs.map((leg, i) => (
+          <tr>
+            <td class="num idx">{i + 1}</td>
+            <td>
+              <select class="field" name={`leg${i}_kind`} aria-label={`Leg ${i + 1} kind`}>
+                <option value="" selected={!v(`leg${i}_kind`, leg?.kind)}>—</option>
+                {["call", "put", "stock"].map((k) => <option value={k} selected={v(`leg${i}_kind`, leg?.kind) === k}>{k}</option>)}
+              </select>
+            </td>
+            <td><input class="field" name={`leg${i}_quantity`} inputmode="decimal" value={v(`leg${i}_quantity`, leg?.quantity)} aria-label={`Leg ${i + 1} quantity`} /></td>
+            <td><input class="field" name={`leg${i}_strike`} inputmode="decimal" value={v(`leg${i}_strike`, leg?.strike)} aria-label={`Leg ${i + 1} strike`} /></td>
+            <td><input class="field" name={`leg${i}_days`} inputmode="numeric" value={v(`leg${i}_days`, leg?.days)} aria-label={`Leg ${i + 1} days`} /></td>
+            <td><input class="field" name={`leg${i}_vol`} inputmode="decimal" value={v(`leg${i}_vol`, leg?.vol === undefined ? undefined : pct(leg.vol))} aria-label={`Leg ${i + 1} volatility`} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p class="help">Negative quantity is short. Options are in contracts of 100, stock in shares; stock needs no strike, days or volatility. Empty rows are ignored.</p>
+
+    <h3 class="k sub">Risk view starting point</h3>
+    <div class="cols three">
+      <label class="row"><span>Price move %</span><input class="field" name="move_pct" inputmode="decimal" value={v("move_pct", pct(example.risk_defaults.move_pct))} /></label>
+      <label class="row"><span>Days passed</span><input class="field" name="risk_days" inputmode="numeric" value={v("risk_days", example.risk_defaults.days)} /></label>
+      <label class="row"><span>Vol change, points</span><input class="field" name="vol_points" inputmode="decimal" value={v("vol_points", example.risk_defaults.vol_points)} /></label>
+    </div>
+
+    <div class="btns">
+      <button class="btn solid" name="action" value="example" data-price>Price and save</button>
+      {settings.example && <button class="btn" name="action" value="reset" formnovalidate>Use the built-in example</button>}
+      <span class="help" data-wait hidden>Pricing on the API… a sleeping server takes a few seconds to wake.</span>
+    </div>
+  </form>
+</Admin>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("[data-pricing]");
+  form?.addEventListener("submit", (event) => {
+    const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (submitter?.value !== "example") return;
+    form.querySelector<HTMLElement>("[data-wait]")!.hidden = false;
+    // Disable after the browser has read the button's value into the request.
+    setTimeout(() => form.querySelectorAll("button").forEach((b) => (b.disabled = true)));
+  });
+</script>
+
+<style>
+  .intro {
+    margin: -8px 0 20px;
+  }
+  .intro a {
+    color: var(--soft);
+  }
+  .flags {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 4px 24px;
+    margin-bottom: 10px;
+  }
+  .flags b {
+    font-weight: 500;
+  }
+  .notice {
+    max-width: 640px;
+    margin-top: 8px;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  .head h2 {
+    margin-bottom: 6px;
+  }
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0 12px;
+    margin-top: 16px;
+  }
+  .cols.three {
+    grid-template-columns: repeat(3, minmax(0, 180px));
+  }
+  .legs {
+    margin-top: 6px;
+  }
+  .legs td {
+    padding: 5px 8px 5px 0;
+    border: 0;
+  }
+  .legs th {
+    padding-right: 8px;
+  }
+  .idx {
+    color: var(--muted);
+    width: 36px;
+  }
+  .sub {
+    margin: 22px 0 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .btns {
+    margin-top: 6px;
+  }
+  @media (max-width: 900px) {
+    .cols {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px) {
+    .cols,
+    .cols.three {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .legs th:first-child,
+    .legs td:first-child {
+      display: none;
+    }
+  }
+</style>

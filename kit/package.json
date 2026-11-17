@@ -6,6 +6,7 @@
   "exports": {
     "./tokens.css": "./tokens.css",
     "./theme": "./theme.js",
+    "./hub-data": "./hub-data.ts",
     "./SiteHeader.svelte": "./SiteHeader.svelte",
     "./ThemeSwitch.svelte": "./ThemeSwitch.svelte"
   },

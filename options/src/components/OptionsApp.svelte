@@ -9,6 +9,7 @@
   import { sliceAt, tableAt, toCube, valueAt } from "../lib/grid.ts";
   import { cleanLeg, clonePosition, decodeState, encodeState, isValidPosition } from "../lib/state.ts";
   import { dragStep } from "../lib/templates.ts";
+  import { track, type UsageEvent } from "../lib/track.ts";
   import type { ExplainResponse, GridResponse, Position, RiskResponse, Settings } from "../lib/types.ts";
   import LegsEditor from "./LegsEditor.svelte";
   import PayoffChart from "./PayoffChart.svelte";
@@ -25,9 +26,11 @@
     /** The default example's risk numbers, also shipped inside the page. */
     firstRisk: { risk: RiskResponse; explain: ExplainResponse };
     apiBase: string;
+    /** Where the default example's full grid is stored. */
+    gridUrl: string;
   }
 
-  let { settings, first, firstRisk, apiBase }: Props = $props();
+  let { settings, first, firstRisk, apiBase, gridUrl }: Props = $props();
   let distribution = $state.raw<RiskResponse["distribution"]>(null);
 
   /** Everything that changes the numbers. The label does not, so it is left out. */
@@ -171,6 +174,7 @@
       full = true;
       status = "ready";
       problem = "";
+      track("priced");
       elapsed = Math.min(elapsed, result.axes.days[result.axes.days.length - 1]);
     } catch (error) {
       if (mine !== ticket || (error as Error).name === "AbortError") return;
@@ -184,7 +188,7 @@
   /** The default example's full grid is a stored file, so the first view never needs the server. */
   async function loadStoredDefault() {
     try {
-      const response = await fetch("/default-grid.json");
+      const response = await fetch(gridUrl);
       if (!response.ok) throw new Error("missing");
       const stored = (await response.json()) as GridResponse;
       if (ticket === 0 && key === pricedKey) {
@@ -211,6 +215,7 @@
     const shared = fromLink ? decodeState(location.hash.slice(3)) : null;
     live = true;
     if (shared) {
+      track("link_opened");
       position = shared.position;
       rangePct = shared.rangePct;
       requestedKey = pricingKey(shared.position, shared.rangePct);
@@ -299,6 +304,7 @@
   async function copyLink() {
     const url = `${location.origin}${location.pathname}#p=${encodeState(position, rangePct)}`;
     history.replaceState(null, "", url);
+    track("shared");
     try {
       await navigator.clipboard.writeText(url);
       shareUrl = "";
@@ -307,6 +313,10 @@
     } catch {
       shareUrl = url;
     }
+  }
+
+  function used(event: Event) {
+    track((event.currentTarget as HTMLElement).dataset.track as UsageEvent);
   }
 
   const fill = (value: number, low: number, high: number) =>
@@ -444,38 +454,49 @@
     </p>
   {/if}
 
+  <!-- Each panel's first use in a page view is counted for the admin dashboard. -->
   {#if settings.flags.risk}
-    <RiskPanel
-      {apiBase}
-      position={priced}
-      {rangePct}
-      defaults={settings.risk_defaults}
-      initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
-      bind:distribution
-    />
+    <div class="use" data-track="risk" onpointerdown={used} onkeydown={used} role="presentation">
+      <RiskPanel
+        {apiBase}
+        position={priced}
+        {rangePct}
+        defaults={settings.risk_defaults}
+        initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
+        bind:distribution
+      />
+    </div>
   {/if}
 
   {#if settings.flags.compare}
-    <ComparePanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
+    <div class="use" data-track="compare" onpointerdown={used} onkeydown={used} role="presentation">
+      <ComparePanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
+    </div>
   {/if}
 
   {#if settings.flags.chain}
-    <ChainPanel
-      {apiBase}
-      {position}
-      onload={(legs) => (position.legs = legs)}
-      onadd={(leg) => {
-        if (position.legs.length < 8) position.legs.push(leg);
-      }}
-    />
+    <div class="use" data-track="chain" onpointerdown={used} onkeydown={used} role="presentation">
+      <ChainPanel
+        {apiBase}
+        {position}
+        onload={(legs) => (position.legs = legs)}
+        onadd={(leg) => {
+          if (position.legs.length < 8) position.legs.push(leg);
+        }}
+      />
+    </div>
   {/if}
 
   {#if settings.flags.sketch}
-    <SketchPanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
+    <div class="use" data-track="sketch" onpointerdown={used} onkeydown={used} role="presentation">
+      <SketchPanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
+    </div>
   {/if}
 
   {#if settings.flags.binomial}
-    <TreeExplorer {apiBase} position={priced} />
+    <div class="use" data-track="tree" onpointerdown={used} onkeydown={used} role="presentation">
+      <TreeExplorer {apiBase} position={priced} />
+    </div>
   {/if}
 
   <h2 class="section">Position</h2>
@@ -490,6 +511,10 @@
 <style>
   .tool {
     padding-bottom: 64px;
+  }
+  /* Wrappers that only listen for a panel's first use; they take no space of their own. */
+  .use {
+    display: contents;
   }
   .banner {
     margin: 16px 0 0;

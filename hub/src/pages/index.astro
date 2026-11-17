@@ -1,0 +1,369 @@
+---
+import { env } from "cloudflare:workers";
+import { listProjects, siteText } from "@blessedshoh/kit/hub-data";
+import LiveCard from "../components/LiveCard.astro";
+import Site from "../layouts/Site.astro";
+import { parseFacts } from "../lib/validate.ts";
+
+const [projects, text] = await Promise.all([listProjects(env.DB), siteText(env.DB)]);
+const featured = projects.find((p) => p.featured && p.status === "live" && p.url) ?? projects.find((p) => p.status === "live" && p.url);
+const facts = parseFacts(text.facts);
+const paragraphs = (text.about ?? "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+const live = projects.filter((p) => p.status === "live").length;
+const host = (url: string) => url.replace(/^https:\/\//, "").replace(/\/$/, "");
+
+const links = [
+  { title: "Projects", url: "/#projects" },
+  { title: "About", url: "/#about" },
+  ...(text.github_url ? [{ title: "GitHub", url: text.github_url }] : []),
+];
+---
+
+<Site
+  title="blessedshoh · quant tools and research"
+  description={text.intro || "Quant tools and research on derivatives and risk."}
+  links={links}
+>
+  <main>
+    <section class="hero wrap">
+      <div class="copy">
+        <div class="kick">Portfolio · research · tools</div>
+        <h1>{text.headline}</h1>
+        {text.intro && <p class="lead">{text.intro}</p>}
+        <div class="actions">
+          {featured && (
+            <a class="cta" href={featured.url}>
+              Open the {featured.title.toLowerCase()} <span aria-hidden="true">&rarr;</span>
+            </a>
+          )}
+          <a class="ghost" href="#projects">All projects</a>
+        </div>
+      </div>
+      {featured?.slug === "options" && <LiveCard href={featured.url} />}
+    </section>
+
+    <section id="projects" class="projects wrap" aria-labelledby="projects-title">
+      <div class="section-head">
+        <h2 id="projects-title">Projects</h2>
+        <span class="k">{live} live · {projects.length - live} coming</span>
+      </div>
+      <ul class="cards">
+        {projects.map((p) => (
+          <li class:list={["card", p.status, { featured: p.featured }]}>
+            <div class="card-top">
+              <span class="k">{p.tag}</span>
+              <span class:list={["badge", p.status]}>{p.status === "live" ? "Live" : "Soon"}</span>
+            </div>
+            <h3>
+              {p.status === "live" && p.url ? <a class="stretch" href={p.url}>{p.title}</a> : p.title}
+            </h3>
+            <p>{p.summary}</p>
+            <div class="card-foot">
+              {p.status === "live" && p.url && <span class="num addr">{host(p.url)}</span>}
+              {p.writeup_url && <a class="writeup" href={p.writeup_url}>How it's built &rarr;</a>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section id="about" class="about wrap" aria-labelledby="about-title">
+      <div>
+        <h2 id="about-title">About</h2>
+        {paragraphs.map((p) => <p>{p}</p>)}
+      </div>
+      {facts.length > 0 && (
+        <dl class="facts">
+          {facts.map((f) => (
+            <div>
+              <dt class="num">{f.value}</dt>
+              <dd>{f.label}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <nav aria-label="Contact">
+      {text.github_url && <a href={text.github_url}>GitHub</a>}
+      {text.linkedin_url && <a href={text.linkedin_url}>LinkedIn</a>}
+      {text.email && <a href={`mailto:${text.email}`}>{text.email}</a>}
+    </nav>
+    <span>&copy; {new Date().getFullYear()} blessedshoh · no cookies, no trackers</span>
+  </footer>
+</Site>
+
+<style>
+  main {
+    display: block;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 64px;
+    align-items: center;
+    padding-top: 72px;
+    padding-bottom: 88px;
+  }
+  .kick {
+    font: 500 11.5px/1.4 var(--mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-weight: 500;
+    font-size: clamp(38px, 4.9vw, 62px);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    margin: 16px 0 20px;
+  }
+  .lead {
+    color: var(--soft);
+    font-size: 17px;
+    max-width: 42ch;
+    margin: 0 0 34px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px 22px;
+  }
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-radius: 5px;
+    background: var(--ink);
+    color: var(--bg);
+    font: 500 12.5px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .cta span {
+    transition: transform 0.2s;
+  }
+  .cta:hover span {
+    transform: translateX(4px);
+  }
+  .ghost {
+    font: 500 12.5px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ghost:hover {
+    color: var(--ink);
+  }
+
+  section + section {
+    border-top: 1px solid var(--line);
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 32px;
+    font-weight: 500;
+  }
+
+  .projects {
+    padding-top: 64px;
+    padding-bottom: 80px;
+  }
+  .cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+    gap: 18px;
+  }
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px 22px 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    transition: border-color 0.2s, transform 0.3s;
+  }
+  .card.live:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .card.featured {
+    border-top: 2px solid var(--accent);
+  }
+  .card.soon {
+    background: transparent;
+    border-style: dashed;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font: 500 10.5px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line);
+  }
+  .badge.live {
+    color: var(--profit);
+  }
+  .badge.live::before {
+    background: var(--profit);
+  }
+  h3 {
+    font-size: 24px;
+    font-weight: 500;
+  }
+  h3 a {
+    text-decoration: none;
+  }
+  /* The whole card opens the project; the write-up link sits above it. */
+  .stretch::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+  }
+  .card p {
+    margin: 0;
+    color: var(--soft);
+    font-size: 15px;
+    flex: 1;
+  }
+  .card-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding-top: 12px;
+    margin-top: 4px;
+    border-top: 1px solid var(--line);
+    font: 500 11.5px/1.4 var(--mono);
+    color: var(--muted);
+    min-height: 30px;
+  }
+  .card-foot:empty {
+    display: none;
+  }
+  .writeup {
+    position: relative;
+    z-index: 1;
+    margin-left: auto;
+  }
+  .writeup:hover {
+    color: var(--ink);
+  }
+
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 64px;
+    padding-top: 64px;
+    padding-bottom: 80px;
+  }
+  .about p {
+    color: var(--soft);
+    font-size: 17px;
+    max-width: 62ch;
+    margin: 18px 0 0;
+  }
+  .facts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .facts div {
+    padding: 22px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts div:nth-child(odd) {
+    border-right: 1px solid var(--line);
+  }
+  .facts div:nth-last-child(-n + 2):nth-child(odd),
+  .facts div:last-child {
+    border-bottom: 0;
+  }
+  .facts dt {
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .facts dd {
+    margin: 4px 0 0;
+    font: 500 11px/1.4 var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    padding-top: 26px;
+    padding-bottom: 44px;
+    border-top: 1px solid var(--line);
+    font: 500 11.5px/1.4 var(--mono);
+    color: var(--muted);
+  }
+  footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+  }
+  footer a {
+    text-decoration: none;
+  }
+  footer a:hover {
+    color: var(--ink);
+  }
+
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 44px;
+      padding-top: 40px;
+      padding-bottom: 60px;
+    }
+    .about {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 36px;
+    }
+    .lead,
+    .about p {
+      font-size: 16px;
+    }
+  }
+</style>

@@ -1,0 +1,223 @@
+---
+import Site from "./Site.astro";
+
+interface Props {
+  title: string;
+  /** A short confirmation shown at the top after a save. */
+  notice?: string | null;
+  /** A problem with what was submitted, shown instead of saving. */
+  problem?: string | null;
+}
+
+const { title, notice = null, problem = null } = Astro.props;
+const here = Astro.url.pathname.replace(/\/$/, "") || "/admin";
+const sections = [
+  { url: "/admin", label: "Overview" },
+  { url: "/admin/projects", label: "Projects" },
+  { url: "/admin/text", label: "Site text" },
+  { url: "/admin/numbers", label: "Numbers" },
+  { url: "/admin/tools", label: "Tools" },
+];
+const current = (url: string) => (url === "/admin" ? here === "/admin" : here === url || here.startsWith(`${url}/`));
+---
+
+<Site title={`${title} · admin · blessedshoh`} description="Admin dashboard" theme="terminal" section="Admin" links={[{ title: "View site", url: "/" }]}>
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <div class="admin wrap">
+    <nav class="side" aria-label="Admin sections">
+      {sections.map((s) => (
+        <a href={s.url} aria-current={current(s.url) ? "page" : undefined}>{s.label}</a>
+      ))}
+      <div class="who">
+        <span class="k">Signed in</span>
+        <span class="email">{Astro.locals.admin}</span>
+        <a class="out" href="/cdn-cgi/access/logout">Sign out</a>
+      </div>
+    </nav>
+    <main>
+      <h1>{title}</h1>
+      {notice && <p class="flash ok" role="status">{notice}</p>}
+      {problem && <p class="flash bad" role="alert">{problem}</p>}
+      <slot />
+    </main>
+  </div>
+</Site>
+
+<style>
+  .admin {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 44px;
+    padding-top: 34px;
+    padding-bottom: 80px;
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: 20px;
+    align-self: start;
+  }
+  .side > a {
+    font: 500 12px/1 var(--mono);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 11px 12px;
+    border-left: 2px solid transparent;
+  }
+  .side > a:hover {
+    color: var(--ink);
+  }
+  .side > a[aria-current="page"] {
+    color: var(--ink);
+    border-left-color: var(--accent);
+    background: var(--panel);
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 26px;
+    padding: 14px 12px 0;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .email {
+    color: var(--soft);
+    overflow-wrap: anywhere;
+  }
+  .out {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 500;
+    margin-bottom: 26px;
+  }
+  .flash {
+    margin: -6px 0 24px;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    border-radius: var(--radius);
+    font-size: 14px;
+  }
+  .flash.ok {
+    border-left-color: var(--profit);
+  }
+  .flash.bad {
+    border-left-color: var(--loss);
+    color: var(--ink);
+  }
+
+  /* Shared pieces for every admin page. */
+  main :global(.panel) {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    padding: 20px 22px;
+  }
+  main :global(.panel + .panel),
+  main :global(.panel + section),
+  main :global(section + section) {
+    margin-top: 22px;
+  }
+  main :global(h2) {
+    font-size: 21px;
+    font-weight: 500;
+    margin-bottom: 14px;
+  }
+  main :global(label.row) {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  main :global(label.row > span:first-child) {
+    font: 500 11px/1.4 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  main :global(.help) {
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  main :global(textarea.field) {
+    font-family: var(--sans);
+    line-height: 1.5;
+    resize: vertical;
+  }
+  main :global(.check) {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  main :global(.check input) {
+    accent-color: var(--accent);
+    margin-top: 4px;
+  }
+  main :global(.btns) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  main :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  main :global(th) {
+    text-align: left;
+    font: 500 10.5px/1.4 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 10px 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  main :global(td) {
+    padding: 11px 10px 11px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  main :global(tr:last-child td) {
+    border-bottom: 0;
+  }
+  main :global(.empty) {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 760px) {
+    .admin {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+      padding-top: 18px;
+    }
+    .side {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .side > a {
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      padding: 9px 10px;
+    }
+    .side > a[aria-current="page"] {
+      border-bottom-color: var(--accent);
+    }
+    .who {
+      display: none;
+    }
+  }
+</style>

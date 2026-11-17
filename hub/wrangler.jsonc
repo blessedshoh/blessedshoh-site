@@ -1,0 +1,30 @@
+// The hub: blessedshoh.dev pages, the admin dashboard, and the small settings and
+// counter endpoints the tools read. Server-rendered by Astro on Cloudflare Workers.
+// Deploy from this folder:  pnpm run deploy
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "blessedshoh-hub",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blessedshoh-hub",
+      "database_id": "63423783-b380-42da-8d64-2b994eec20eb",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // Cloudflare Access protects /admin. These identify the Access application whose
+    // sign-in tokens the hub accepts; they are public values, not secrets.
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    "API_BASE": "https://api.blessedshoh.dev"
+  },
+  // A temporary address while the hub is tested. The switch to blessedshoh.dev comes later.
+  "routes": [{ "pattern": "next.blessedshoh.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "observability": { "enabled": true }
+}

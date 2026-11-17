@@ -1,6 +1,9 @@
 packages:
   - kit
   - options
+  - hub
 allowBuilds:
   esbuild: true
   workerd: true
+overrides:
+  '@cloudflare/vite-plugin': 1.67.0

@@ -1,0 +1,52 @@
+---
+import { env } from "cloudflare:workers";
+import { siteText } from "@blessedshoh/kit/hub-data";
+import Admin from "../../layouts/Admin.astro";
+import { saveText } from "../../lib/admin.ts";
+import { Invalid, TEXT_FIELDS, textFromForm } from "../../lib/validate.ts";
+
+let values = await siteText(env.DB);
+let problem: string | null = null;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  try {
+    const changed = await saveText(env.DB, Astro.locals.admin ?? "", textFromForm(form));
+    return Astro.redirect(`/admin/text?changed=${changed}`, 303);
+  } catch (error) {
+    if (!(error instanceof Invalid)) throw error;
+    problem = error.message;
+    values = Object.fromEntries(TEXT_FIELDS.map((f) => [f.key, String(form.get(f.key) ?? "")]));
+  }
+}
+
+const changed = Astro.url.searchParams.get("changed");
+const notice =
+  changed === null ? null : changed === "0" ? "Nothing had changed." : `Saved ${changed} ${changed === "1" ? "field" : "fields"}. The home page shows it now.`;
+---
+
+<Admin title="Site text" notice={notice} problem={problem}>
+  <form method="post" class="panel">
+    {TEXT_FIELDS.map((f) => (
+      <label class="row">
+        <span>{f.label}</span>
+        {f.rows > 1 ? (
+          <textarea class="field" name={f.key} rows={f.rows} maxlength={f.max}>{values[f.key] ?? ""}</textarea>
+        ) : (
+          <input class="field" name={f.key} value={values[f.key] ?? ""} maxlength={f.max} type={f.key === "email" ? "email" : f.key.endsWith("_url") ? "url" : "text"} />
+        )}
+        <span class="help">{f.help}</span>
+      </label>
+    ))}
+    <div class="btns">
+      <button class="btn solid" type="submit">Save text</button>
+      <a class="btn" href="/" target="_blank" rel="noopener">View home page</a>
+    </div>
+  </form>
+</Admin>
+
+<style>
+  form {
+    max-width: 760px;
+  }
+</style>

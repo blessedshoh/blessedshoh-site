@@ -1,0 +1,40 @@
+---
+import "@blessedshoh/kit/tokens.css";
+import SiteHeader from "@blessedshoh/kit/SiteHeader.svelte";
+import { themeBootScript } from "@blessedshoh/kit/theme";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Reading pages open in Paper, tools and the dashboard in Terminal. A visitor's own choice wins. */
+  theme?: "paper" | "terminal";
+  section?: string;
+  links?: { title: string; url: string; current?: boolean }[];
+  home?: string;
+}
+
+const { title, description, theme = "paper", section = "", links = [], home = "/" } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en" data-theme={theme}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <script is:inline set:html={themeBootScript}></script>
+    <slot name="head" />
+  </head>
+  <body>
+    <SiteHeader client:load home={home} section={section} links={links} theme={theme} />
+    <slot />
+  </body>
+</html>

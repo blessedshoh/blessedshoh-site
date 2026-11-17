@@ -1,0 +1,211 @@
+---
+import { env } from "cloudflare:workers";
+import { listProjects } from "@blessedshoh/kit/hub-data";
+import Admin from "../../layouts/Admin.astro";
+import { numbers, optionsSettings, recentChanges } from "../../lib/admin.ts";
+
+const [stats, changes, projects, options] = await Promise.all([
+  numbers(env.DB, 30),
+  recentChanges(env.DB, 8),
+  listProjects(env.DB, true),
+  optionsSettings(env.DB),
+]);
+const sum = (days: number) => stats.series.slice(-days).reduce((total, d) => total + d.n, 0);
+const toolUse = stats.events.filter((e) => e.event === "priced").reduce((total, e) => total + e.n, 0);
+const switchesOn = Object.values(options.flags).filter(Boolean).length;
+const when = (at: string) => at.replace("T", " ").slice(0, 16);
+---
+
+<Admin title="Overview">
+  <dl class="tiles">
+    <div class="panel"><dt class="k">Visits today</dt><dd class="num">{sum(1).toLocaleString("en-US")}</dd></div>
+    <div class="panel"><dt class="k">Last 7 days</dt><dd class="num">{sum(7).toLocaleString("en-US")}</dd></div>
+    <div class="panel"><dt class="k">Last 30 days</dt><dd class="num">{sum(30).toLocaleString("en-US")}</dd></div>
+    <div class="panel"><dt class="k">Positions priced, 30 days</dt><dd class="num">{toolUse.toLocaleString("en-US")}</dd></div>
+  </dl>
+
+  <section class="panel status" data-status>
+    <div>
+      <h2>Pricing API</h2>
+      <p class="help">Checked only when you ask, because each check wakes the server and a sleeping server costs nothing.</p>
+    </div>
+    <div class="state">
+      <span class="dot" data-dot></span>
+      <span data-text class="num">Not checked</span>
+      <button class="btn" type="button" data-check>Check now</button>
+    </div>
+  </section>
+
+  <div class="two">
+    <section class="panel">
+      <h2>At a glance</h2>
+      <ul class="facts">
+        <li><span>Projects</span><b class="num">{projects.filter((p) => p.status === "live").length} live · {projects.filter((p) => p.status === "soon").length} soon · {projects.filter((p) => p.status === "hidden").length} hidden</b></li>
+        <li><span>Options tool switches</span><b class="num">{switchesOn} of 5 on</b></li>
+        <li><span>Options notice</span><b>{options.banner ? "Shown" : "Off"}</b></li>
+        <li><span>Options default example</span><b>{options.example ? `Custom, saved ${when(options.example.saved_at)}` : "Built-in"}</b></li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Recent changes</h2>
+      {changes.length === 0 ? (
+        <p class="empty">Nothing changed yet. Every edit made here is listed with its time.</p>
+      ) : (
+        <ol class="log">
+          {changes.map((c) => (
+            <li>
+              <span class="num when">{when(c.at)}</span>
+              <span class="what"><b>{c.area}</b> {c.summary}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  </div>
+</Admin>
+
+<script>
+  const box = document.querySelector<HTMLElement>("[data-status]");
+  const button = box?.querySelector<HTMLButtonElement>("[data-check]");
+  const text = box?.querySelector<HTMLElement>("[data-text]");
+  const dot = box?.querySelector<HTMLElement>("[data-dot]");
+  button?.addEventListener("click", async () => {
+    if (!text || !dot) return;
+    button.disabled = true;
+    text.textContent = "Checking… a sleeping server takes a few seconds to wake";
+    dot.dataset.state = "wait";
+    try {
+      const response = await fetch("/admin/status", { cache: "no-store" });
+      const body = (await response.json()) as { ok: boolean; ms: number; detail: string };
+      dot.dataset.state = body.ok ? "up" : "down";
+      text.textContent = body.ok ? `Awake · answered in ${body.ms.toLocaleString("en-US")} ms` : `Not answering · ${body.detail}`;
+    } catch {
+      dot.dataset.state = "down";
+      text.textContent = "The check itself failed. Reload and try again.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 0 0 22px;
+  }
+  .tiles dd {
+    margin: 8px 0 0;
+    font-size: 30px;
+    font-weight: 500;
+  }
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px 30px;
+    flex-wrap: wrap;
+  }
+  .status h2 {
+    margin-bottom: 4px;
+  }
+  .status .help {
+    margin: 0;
+    max-width: 52ch;
+  }
+  .state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--soft);
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--line);
+    flex: none;
+  }
+  .dot[data-state="wait"] {
+    background: var(--accent);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  .dot[data-state="up"] {
+    background: var(--profit);
+  }
+  .dot[data-state="down"] {
+    background: var(--loss);
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 22px;
+    margin-top: 22px;
+  }
+  .two .panel {
+    margin-top: 0;
+  }
+  .facts,
+  .log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+  }
+  .facts li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts li:last-child,
+  .log li:last-child {
+    border-bottom: 0;
+  }
+  .facts span {
+    color: var(--muted);
+  }
+  .facts b {
+    font-weight: 500;
+    text-align: right;
+  }
+  .log li {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .when {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .what b {
+    font-weight: 500;
+    color: var(--accent);
+    margin-right: 6px;
+  }
+  @media (max-width: 980px) {
+    .tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .two {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 480px) {
+    .log li {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2px;
+    }
+  }
+</style>

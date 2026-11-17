@@ -5,7 +5,7 @@
 //   API_BASE=https://... pnpm default-grid
 //
 // Writes two files:
-//   public/default-grid.json          the full grid, loaded right after the page appears
+//   public/builtin-grid.json          the full grid, loaded right after the page appears
 //   src/data/default-first.json       today and expiry only, small enough to ship inside the page
 
 import { readFile, writeFile } from "node:fs/promises";
@@ -75,10 +75,10 @@ const explain = await post("/options/explain", {
   vol_shift: d.vol_points / 100,
 });
 
-await writeFile(here("../public/default-grid.json"), JSON.stringify(full));
+await writeFile(here("../public/builtin-grid.json"), JSON.stringify(full));
 await writeFile(here("../src/data/default-first.json"), JSON.stringify(first));
 await writeFile(here("../src/data/default-risk.json"), JSON.stringify({ risk, explain }));
 
 const kb = (value) => (JSON.stringify(value).length / 1024).toFixed(0);
-console.log(`default-grid.json  ${kb(full)} KB, ${full.profit.values.length} values`);
+console.log(`builtin-grid.json  ${kb(full)} KB, ${full.profit.values.length} values`);
 console.log(`default-first.json ${kb(first)} KB, ${first.profit.values.length} values`);

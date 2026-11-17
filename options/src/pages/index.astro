@@ -1,17 +1,59 @@
 ---
+import { env } from "cloudflare:workers";
+import { headerLinks, toolSettings, type HeaderLink } from "@blessedshoh/kit/hub-data";
 import OptionsApp from "../components/OptionsApp.svelte";
-import first from "../data/default-first.json";
-import firstRisk from "../data/default-risk.json";
-import settings from "../data/settings.json";
+import builtInFirst from "../data/default-first.json";
+import builtInRisk from "../data/default-risk.json";
+import builtIn from "../data/settings.json";
 import Base from "../layouts/Base.astro";
+import type { Settings } from "../lib/types.ts";
 
-const apiBase = import.meta.env.PUBLIC_API_BASE ?? settings.api_base;
+interface HubSettings {
+  flags?: Record<string, boolean>;
+  banner?: string | null;
+  example?: {
+    position: Settings["default_position"];
+    range_pct: number;
+    risk_defaults: Settings["risk_defaults"];
+    first: typeof builtInFirst;
+    firstRisk: typeof builtInRisk;
+    saved_at: string;
+  } | null;
+}
+
+// The built-in settings ship with the page; the hub's settings, edited in the admin
+// dashboard, are laid on top. If the database cannot be read the tool still works.
+let hub: HubSettings | null = null;
+let links: HeaderLink[] = builtIn.projects;
+try {
+  const [stored, fromHub] = await Promise.all([toolSettings<HubSettings>(env.DB, "options"), headerLinks(env.DB, "options")]);
+  hub = stored;
+  if (fromHub.length > 0) links = fromHub;
+} catch {
+  // Fall back to the built-in settings below.
+}
+
+const example = hub?.example ?? null;
+const settings: Settings = {
+  ...(builtIn as Settings),
+  flags: { ...builtIn.flags, ...hub?.flags },
+  banner: hub?.banner ?? null,
+  ...(example && {
+    default_position: example.position,
+    default_range_pct: example.range_pct,
+    risk_defaults: example.risk_defaults,
+  }),
+};
+const first = example?.first ?? builtInFirst;
+const firstRisk = example?.firstRisk ?? builtInRisk;
+const gridUrl = example ? `/default-grid.json?v=${encodeURIComponent(example.saved_at)}` : "/builtin-grid.json";
+const apiBase = import.meta.env.PUBLIC_API_BASE ?? builtIn.api_base;
 ---
 
 <Base
   title="Options risk tool · blessedshoh"
   description="See how an options position makes or loses money as price, time and volatility change. Black-Scholes pricing with every number explained."
-  links={settings.projects}
+  links={links}
 >
-  <OptionsApp client:load settings={settings} first={first} firstRisk={firstRisk} apiBase={apiBase} />
+  <OptionsApp client:load settings={settings} first={first} firstRisk={firstRisk} apiBase={apiBase} gridUrl={gridUrl} />
 </Base>

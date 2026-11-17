@@ -1,0 +1,186 @@
+---
+import { env } from "cloudflare:workers";
+import type { Project } from "@blessedshoh/kit/hub-data";
+import Admin from "../../../layouts/Admin.astro";
+import { saveProject } from "../../../lib/admin.ts";
+import { Invalid, STATUSES, projectFromForm } from "../../../lib/validate.ts";
+
+const isNew = Astro.params.id === "new";
+const id = isNew ? null : Number(Astro.params.id);
+if (!isNew && !Number.isInteger(id)) return Astro.redirect("/admin/projects");
+
+const blank = { slug: "", title: "", summary: "", url: "", tag: "", status: "soon", featured: 0, in_header: 1, writeup_url: "" };
+let values: Omit<Project, "id" | "sort" | "updated_at"> = blank as typeof values;
+let problem: string | null = null;
+
+if (!isNew) {
+  const row = await env.DB.prepare("SELECT * FROM projects WHERE id = ?").bind(id).first<Project>();
+  if (!row) return Astro.redirect("/admin/projects");
+  values = row;
+}
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  try {
+    const input = projectFromForm(form);
+    await saveProject(env.DB, Astro.locals.admin ?? "", id, input);
+    return Astro.redirect(`/admin/projects?done=${isNew ? "added" : "saved"}`, 303);
+  } catch (error) {
+    if (!(error instanceof Invalid)) throw error;
+    problem = error.message;
+    // Keep what was typed so nothing is lost.
+    values = {
+      ...values,
+      slug: String(form.get("slug") ?? ""),
+      title: String(form.get("title") ?? ""),
+      summary: String(form.get("summary") ?? ""),
+      url: String(form.get("url") ?? ""),
+      tag: String(form.get("tag") ?? ""),
+      status: String(form.get("status") ?? "soon") as Project["status"],
+      featured: form.get("featured") ? 1 : 0,
+      in_header: form.get("in_header") ? 1 : 0,
+      writeup_url: String(form.get("writeup_url") ?? ""),
+    };
+  }
+}
+
+const STATUS_HELP: Record<string, string> = {
+  live: "Live: a card with a link, and in the header if marked below.",
+  soon: "Coming soon: a dashed card without a link.",
+  hidden: "Hidden: not shown anywhere. Kept here for later.",
+};
+---
+
+<Admin title={isNew ? "Add project" : `Edit · ${values.title}`} problem={problem}>
+  <a class="back" href="/admin/projects">&larr; All projects</a>
+  <form method="post" class="grid">
+    <section class="panel">
+      <label class="row"><span>Title</span><input class="field" name="title" value={values.title} maxlength="80" required /></label>
+      <label class="row">
+        <span>Summary</span>
+        <textarea class="field" name="summary" rows="4" maxlength="400">{values.summary}</textarea>
+        <span class="help">One or two sentences on what it does. Up to 400 characters.</span>
+      </label>
+      <div class="pair">
+        <label class="row"><span>Tag</span><input class="field" name="tag" value={values.tag} maxlength="30" placeholder="Derivatives" /></label>
+        <label class="row">
+          <span>Short name</span>
+          <input class="field" name="slug" value={values.slug} maxlength="40" pattern="[a-z0-9][a-z0-9\-]*" required placeholder="bonds" />
+        </label>
+      </div>
+      <label class="row">
+        <span>Address</span>
+        <input class="field" name="url" type="url" value={values.url} placeholder="https://bonds.blessedshoh.dev" />
+        <span class="help">Where the card links to. Leave empty until it is deployed.</span>
+      </label>
+      <label class="row">
+        <span>Write-up address</span>
+        <input class="field" name="writeup_url" type="url" value={values.writeup_url} placeholder="https://github.com/blessedshoh/quant-core" />
+        <span class="help">Shown as "How it's built". A case study, notebook or repository.</span>
+      </label>
+    </section>
+
+    <section class="panel side">
+      <h2>Showing</h2>
+      <fieldset>
+        <legend class="sr">Status</legend>
+        {STATUSES.map((s) => (
+          <label class="check">
+            <input type="radio" name="status" value={s} checked={values.status === s} />
+            <span>{STATUS_HELP[s]}</span>
+          </label>
+        ))}
+      </fieldset>
+      <hr />
+      <label class="check"><input type="checkbox" name="featured" checked={values.featured === 1} /><span>Featured: highlighted card, and the home page's main button.</span></label>
+      <label class="check"><input type="checkbox" name="in_header" checked={values.in_header === 1} /><span>In the header's project switcher (live projects only).</span></label>
+      <div class="btns">
+        <button class="btn solid" type="submit">{isNew ? "Add project" : "Save"}</button>
+        <a class="btn" href="/admin/projects">Cancel</a>
+      </div>
+    </section>
+  </form>
+
+  {!isNew && (
+    <form method="post" action="/admin/projects" class="danger" data-confirm={`Delete "${values.title}"? This cannot be undone.`}>
+      <input type="hidden" name="id" value={id} />
+      <button class="btn" name="action" value="delete">Delete project</button>
+      <span class="help">Removes it for good. To take it down for now, set it to Hidden instead.</span>
+    </form>
+  )}
+</Admin>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-confirm]")) {
+    form.addEventListener("submit", (event) => {
+      if (!confirm(form.dataset.confirm ?? "Are you sure?")) event.preventDefault();
+    });
+  }
+</script>
+
+<style>
+  .back {
+    display: inline-block;
+    font: 500 12px/1 var(--mono);
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 18px;
+  }
+  .back:hover {
+    color: var(--ink);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+  }
+  .grid .panel {
+    margin-top: 0;
+  }
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  hr {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 14px 0 16px;
+  }
+  .side .btns {
+    margin-top: 20px;
+  }
+  .danger {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .danger .btn {
+    color: var(--loss);
+  }
+  .danger .btn:hover {
+    border-color: var(--loss);
+  }
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
