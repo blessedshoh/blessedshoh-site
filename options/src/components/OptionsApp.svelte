@@ -13,6 +13,7 @@
   import LegsEditor from "./LegsEditor.svelte";
   import PayoffChart from "./PayoffChart.svelte";
   import RiskPanel from "./RiskPanel.svelte";
+  import ChainPanel from "./ChainPanel.svelte";
   import TreeExplorer from "./TreeExplorer.svelte";
 
   interface Props {
@@ -287,7 +288,10 @@
   }
 
   function moveStrike(indices: number[], strike: number) {
-    for (const index of indices) position.legs[index].strike = strike;
+    for (const index of indices) {
+      position.legs[index].strike = strike;
+      delete position.legs[index].entry_price;
+    }
   }
 
   async function copyLink() {
@@ -329,8 +333,10 @@
         <dd class="num">{summary.max_profit == null ? "Unlimited" : signedMoney(summary.max_profit)}</dd>
       </div>
       <div class="cell">
-        <dt class="k">Max loss</dt>
-        <dd class="num neg">{summary.max_loss == null ? "Unlimited" : signedMoney(summary.max_loss)}</dd>
+        <dt class="k">{summary.max_loss != null && summary.max_loss >= 0 ? "Worst case" : "Max loss"}</dt>
+        <dd class="num" class:neg={summary.max_loss == null || summary.max_loss < -0.5} class:pos={summary.max_loss != null && summary.max_loss > 0.5}>
+          {summary.max_loss == null ? "Unlimited" : signedMoney(summary.max_loss)}
+        </dd>
       </div>
       <div class="cell">
         <dt class="k">P/L if price unchanged</dt>
@@ -444,6 +450,17 @@
       defaults={settings.risk_defaults}
       initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
       bind:distribution
+    />
+  {/if}
+
+  {#if settings.flags.chain}
+    <ChainPanel
+      {apiBase}
+      {position}
+      onload={(legs) => (position.legs = legs)}
+      onadd={(leg) => {
+        if (position.legs.length < 8) position.legs.push(leg);
+      }}
     />
   {/if}
 

@@ -12,6 +12,8 @@ export interface Leg {
   days?: number;
   /** Implied volatility as a decimal: 0.64 is 64%. */
   vol?: number;
+  /** Price per share actually paid or received. Empty means the model price today. */
+  entry_price?: number;
 }
 
 export interface Position {
@@ -38,6 +40,44 @@ export interface TreeResponse {
   dt_days: number;
   european_value: number;
   american_value: number;
+}
+
+export interface ChainRow {
+  strike: number;
+  vol: number;
+  call: number;
+  put: number;
+  call_delta: number;
+  put_delta: number;
+}
+
+export interface Quote {
+  strike: number;
+  call_bid: number | null;
+  call_ask: number | null;
+  put_bid: number | null;
+  put_ask: number | null;
+}
+
+export interface TradeLeg {
+  kind: "call" | "put" | "stock" | "cash";
+  /** Per share. Positive is bought; for cash, money lent today. */
+  quantity: number;
+  strike: number | null;
+  price: number;
+}
+
+export interface ArbitrageResponse {
+  violations: {
+    rule: "bound" | "parity" | "order" | "spread" | "butterfly";
+    title: string;
+    detail: string;
+    profit: number;
+    strikes: number[];
+    trade: TradeLeg[];
+  }[];
+  solver: { arbitrage: boolean; credit: number; trade: TradeLeg[]; worst_payoff: number } | null;
+  assumptions: string[];
 }
 
 export interface ConvergenceResponse {

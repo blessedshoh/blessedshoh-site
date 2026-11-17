@@ -26,6 +26,7 @@ const inside = (value: unknown, [low, high]: readonly [number, number]): value i
 
 export function isValidLeg(leg: Leg): boolean {
   if (!Number.isFinite(leg.quantity) || leg.quantity === 0 || Math.abs(leg.quantity) > LIMITS.quantity) return false;
+  if (leg.entry_price !== undefined && !inside(leg.entry_price, [0, 1_000_000])) return false;
   if (leg.kind === "stock") return true;
   return inside(leg.strike, LIMITS.strike) && inside(leg.days, LIMITS.days) && inside(leg.vol, LIMITS.vol);
 }
@@ -43,8 +44,9 @@ export function isValidPosition(position: Position): boolean {
 
 /** Only the fields the API knows about, in a fresh object. */
 export function cleanLeg(leg: Leg): Leg {
-  if (leg.kind === "stock") return { kind: "stock", quantity: leg.quantity };
-  return { kind: leg.kind, quantity: leg.quantity, strike: leg.strike, days: leg.days, vol: leg.vol };
+  const paid = leg.entry_price === undefined ? {} : { entry_price: leg.entry_price };
+  if (leg.kind === "stock") return { kind: "stock", quantity: leg.quantity, ...paid };
+  return { kind: leg.kind, quantity: leg.quantity, strike: leg.strike, days: leg.days, vol: leg.vol, ...paid };
 }
 
 export function clonePosition(position: Position): Position {
@@ -82,9 +84,10 @@ export function encodeState(position: Position, rangePct: number): string {
       q: position.div_yield,
       g: rangePct,
       x: position.exercise === "american" ? 1 : 0,
-      l: position.legs.map((leg) =>
-        leg.kind === "stock" ? ["s", leg.quantity] : [leg.kind[0], leg.quantity, leg.strike, leg.days, leg.vol],
-      ),
+      l: position.legs.map((leg) => {
+        const base = leg.kind === "stock" ? ["s", leg.quantity] : [leg.kind[0], leg.quantity, leg.strike, leg.days, leg.vol];
+        return leg.entry_price === undefined ? base : [...base, leg.entry_price];
+      }),
     }),
   );
 }
@@ -96,9 +99,11 @@ export function decodeState(text: string): { position: Position; rangePct: numbe
     const legs: Leg[] = raw.l.map((item: unknown[]) => {
       const kind = KIND_FROM_CODE[String(item[0])];
       if (!kind) throw new Error("unknown leg kind");
+      const paidAt = kind === "stock" ? 2 : 5;
+      const paid = item.length > paidAt ? { entry_price: Number(item[paidAt]) } : {};
       return kind === "stock"
-        ? { kind, quantity: Number(item[1]) }
-        : { kind, quantity: Number(item[1]), strike: Number(item[2]), days: Number(item[3]), vol: Number(item[4]) };
+        ? { kind, quantity: Number(item[1]), ...paid }
+        : { kind, quantity: Number(item[1]), strike: Number(item[2]), days: Number(item[3]), vol: Number(item[4]), ...paid };
     });
     const position: Position = {
       label: String(raw.t ?? "").slice(0, LIMITS.label),

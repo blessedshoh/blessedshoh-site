@@ -33,6 +33,11 @@
 
   const round = (value: number, digits: number) => Number(value.toFixed(digits));
 
+  /** Changing what a leg is (strike, expiry, volatility, type) drops the price it was opened at. */
+  function reprice(leg: Leg) {
+    delete leg.entry_price;
+  }
+
   function setSide(leg: Leg, long: boolean) {
     leg.quantity = Math.abs(leg.quantity) * (long ? 1 : -1);
   }
@@ -51,6 +56,7 @@
       leg.vol = usualVol;
     }
     leg.kind = kind;
+    reprice(leg);
   }
 
   function addLeg() {
@@ -193,7 +199,10 @@
               step="any"
               aria-label="Strike of leg {n}"
               value={leg.strike}
-              onchange={(event) => commit(event, LIMITS.strike[0], LIMITS.strike[1], leg.strike!, (value) => (leg.strike = value))}
+              onchange={(event) => commit(event, LIMITS.strike[0], LIMITS.strike[1], leg.strike!, (value) => {
+                  leg.strike = value;
+                  reprice(leg);
+                })}
             />
           </label>
           <label class="cell days">
@@ -205,7 +214,10 @@
               step="1"
               aria-label="Days to expiry of leg {n}"
               value={leg.days}
-              onchange={(event) => commit(event, LIMITS.days[0], LIMITS.days[1], leg.days!, (value) => (leg.days = value))}
+              onchange={(event) => commit(event, LIMITS.days[0], LIMITS.days[1], leg.days!, (value) => {
+                  leg.days = value;
+                  reprice(leg);
+                })}
             />
           </label>
           <label class="cell vol">
@@ -218,7 +230,10 @@
               aria-label="Implied volatility of leg {n}, in percent"
               value={round(leg.vol! * 100, 2)}
               onchange={(event) =>
-                commit(event, LIMITS.vol[0] * 100, LIMITS.vol[1] * 100, round(leg.vol! * 100, 2), (value) => (leg.vol = value / 100))}
+                commit(event, LIMITS.vol[0] * 100, LIMITS.vol[1] * 100, round(leg.vol! * 100, 2), (value) => {
+                  leg.vol = value / 100;
+                  reprice(leg);
+                })}
             />
           </label>
         {/if}

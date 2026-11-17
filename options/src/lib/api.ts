@@ -1,5 +1,15 @@
 import { cleanLeg } from "./state.ts";
-import type { ConvergenceResponse, ExplainResponse, GridResponse, Position, RiskResponse, TreeResponse } from "./types.ts";
+import type {
+  ArbitrageResponse,
+  ChainRow,
+  ConvergenceResponse,
+  ExplainResponse,
+  GridResponse,
+  Position,
+  Quote,
+  RiskResponse,
+  TreeResponse,
+} from "./types.ts";
 
 function positionBody(position: Position, rangePct: number) {
   return {
@@ -85,4 +95,30 @@ export function fetchTree(apiBase: string, option: SingleOption, steps: number, 
 /** Tree prices for 1 to 100 steps, both methods. */
 export function fetchConvergence(apiBase: string, option: SingleOption, signal?: AbortSignal) {
   return post<ConvergenceResponse>(`${apiBase}/options/convergence`, { ...option, max_steps: 100 }, signal);
+}
+
+export interface SmileSettings {
+  atm_vol: number;
+  skew: number;
+  curvature: number;
+}
+
+/** Model prices for every listed strike on a volatility smile. */
+export function fetchChain(
+  apiBase: string,
+  market: { spot: number; days: number; rate: number; div_yield: number },
+  smile: SmileSettings,
+  signal?: AbortSignal,
+) {
+  return post<{ forward: number; rows: ChainRow[] }>(`${apiBase}/options/chain`, { ...market, ...smile }, signal);
+}
+
+/** Rule checks and the solver, on bid and ask quotes. */
+export function fetchArbitrage(
+  apiBase: string,
+  market: { spot: number; days: number; rate: number; div_yield: number; american: boolean },
+  quotes: Quote[],
+  signal?: AbortSignal,
+) {
+  return post<ArbitrageResponse>(`${apiBase}/options/arbitrage`, { ...market, quotes }, signal);
 }

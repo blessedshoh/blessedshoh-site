@@ -26,6 +26,11 @@ test("American exercise survives the trip", () => {
   assert.equal(decodeState(encodeState(american, 0.25)).position.exercise, "american");
 });
 
+test("a stated entry price survives the trip", () => {
+  const paid = { ...position, legs: [{ ...position.legs[0], entry_price: 7.25 }, position.legs[2]] };
+  assert.equal(decodeState(encodeState(paid, 0.25)).position.legs[0].entry_price, 7.25);
+});
+
 test("labels in any script survive", () => {
   const named = { ...position, label: "Ñ€£ 株" };
   assert.equal(decodeState(encodeState(named, 0.25)).position.label, "Ñ€£ 株");
