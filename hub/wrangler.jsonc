@@ -17,8 +17,8 @@
   "vars": {
     // Cloudflare Access protects /admin. These identify the Access application whose
     // sign-in tokens the hub accepts; they are public values, not secrets.
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": "",
+    "ACCESS_TEAM_DOMAIN": "blessedshoh.cloudflareaccess.com",
+    "ACCESS_AUD": "fb05e217b9e38fa18b79124a7c22579bb93eed7d89d9766c23cf0a54fd5fc77f",
     "API_BASE": "https://api.blessedshoh.dev"
   },
   // A temporary address while the hub is tested. The switch to blessedshoh.dev comes later.
