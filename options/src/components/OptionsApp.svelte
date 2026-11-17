@@ -14,6 +14,7 @@
   import PayoffChart from "./PayoffChart.svelte";
   import RiskPanel from "./RiskPanel.svelte";
   import ChainPanel from "./ChainPanel.svelte";
+  import ComparePanel from "./ComparePanel.svelte";
   import SketchPanel from "./SketchPanel.svelte";
   import TreeExplorer from "./TreeExplorer.svelte";
 
@@ -452,6 +453,10 @@
       initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
       bind:distribution
     />
+  {/if}
+
+  {#if settings.flags.compare}
+    <ComparePanel {apiBase} {position} onload={(legs) => (position.legs = legs)} />
   {/if}
 
   {#if settings.flags.chain}

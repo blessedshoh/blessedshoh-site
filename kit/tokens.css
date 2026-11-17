@@ -31,6 +31,11 @@
   --accent-ink: #fbf8f2;
   --profit: #0f766e;
   --loss: #b4432a;
+  /* Lines for comparing several things on one chart: distinct, not gain/loss colours. */
+  --series-1: #a55a00;
+  --series-2: #1d6fb8;
+  --series-3: #7b4bc4;
+  --series-4: #4f4a41;
   color-scheme: light;
 }
 
@@ -47,6 +52,10 @@
   --accent-ink: #0a0d12;
   --profit: #2fd47f;
   --loss: #ff5d5d;
+  --series-1: #f5a524;
+  --series-2: #4fb3ff;
+  --series-3: #b794ff;
+  --series-4: #aab6c8;
   color-scheme: dark;
 }
 
