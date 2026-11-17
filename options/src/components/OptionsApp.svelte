@@ -13,6 +13,7 @@
   import LegsEditor from "./LegsEditor.svelte";
   import PayoffChart from "./PayoffChart.svelte";
   import RiskPanel from "./RiskPanel.svelte";
+  import TreeExplorer from "./TreeExplorer.svelte";
 
   interface Props {
     settings: Settings;
@@ -28,7 +29,7 @@
 
   /** Everything that changes the numbers. The label does not, so it is left out. */
   const pricingKey = (value: Position, range: number) =>
-    JSON.stringify([value.spot, value.rate, value.div_yield, value.legs.map(cleanLeg), range]);
+    JSON.stringify([value.spot, value.rate, value.div_yield, value.legs.map(cleanLeg), value.exercise ?? "european", range]);
 
   const startPosition = untrack(() => clonePosition(settings.default_position));
   const startRange = untrack(() => settings.default_range_pct);
@@ -98,7 +99,15 @@
   const entryPrices = $derived(upToDate ? summary.legs.map((leg) => leg.entry_price) : null);
   const stale = $derived(status === "slow" || status === "error" || (!full && key !== pricedKey));
   const busy = $derived(
-    status === "slow" ? "Waking the pricing server" : status === "loading" ? "Pricing" : status === "error" ? "Not updated" : "",
+    status === "slow"
+      ? position.exercise === "american"
+        ? "Building American trees"
+        : "Waking the pricing server"
+      : status === "loading"
+        ? "Pricing"
+        : status === "error"
+          ? "Not updated"
+          : "",
   );
   const breakevenText = $derived(
     summary.breakevens.length === 0 ? "None" : summary.breakevens.map((point) => formatPrice(point)).join(" / "),
@@ -436,6 +445,10 @@
       initial={pricedKey === startKey && rangePct === startRange ? firstRisk : null}
       bind:distribution
     />
+  {/if}
+
+  {#if settings.flags.binomial}
+    <TreeExplorer {apiBase} position={priced} />
   {/if}
 
   <h2 class="section">Position</h2>

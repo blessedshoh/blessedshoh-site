@@ -104,6 +104,25 @@
       />
     </label>
     <label class="cell">
+      <span class="k">Dividend yield %</span>
+      <input
+        class="field"
+        type="number"
+        step="0.25"
+        min="0"
+        value={round(position.div_yield * 100, 2)}
+        onchange={(event) =>
+          commit(event, LIMITS.divYield[0] * 100, LIMITS.divYield[1] * 100, round(position.div_yield * 100, 2), (value) => (position.div_yield = value / 100))}
+      />
+    </label>
+    <div class="cell">
+      <span class="k">Exercise</span>
+      <span class="seg exercise" role="group" aria-label="Exercise style">
+        <button type="button" aria-pressed={position.exercise !== "american"} onclick={() => (position.exercise = "european")}>European</button>
+        <button type="button" aria-pressed={position.exercise === "american"} onclick={() => (position.exercise = "american")}>American</button>
+      </span>
+    </div>
+    <label class="cell">
       <span class="k">Start from</span>
       <select class="field" onchange={useTemplate}>
         <option value="">Choose a strategy</option>
@@ -236,7 +255,7 @@
   }
   .market {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     padding: 14px 16px;
     background: var(--panel);
@@ -246,6 +265,12 @@
     display: grid;
     gap: 5px;
     min-width: 0;
+  }
+  .exercise {
+    justify-self: start;
+  }
+  .exercise button {
+    padding: 10px 12px;
   }
   .legs {
     padding: 6px 16px 4px;

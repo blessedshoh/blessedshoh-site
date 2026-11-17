@@ -5,11 +5,12 @@
     "spot": 166,
     "rate": 0.04,
     "div_yield": 0,
-    "legs": [{ "kind": "call", "quantity": 10, "strike": 180, "days": 30, "vol": 0.64 }]
+    "legs": [{ "kind": "call", "quantity": 10, "strike": 180, "days": 30, "vol": 0.64 }],
+    "exercise": "european"
   },
   "default_range_pct": 0.25,
   "risk_defaults": { "move_pct": 0.05, "days": 7, "vol_points": 0 },
-  "flags": { "risk": true },
+  "flags": { "risk": true, "binomial": true },
   "banner": null,
   "projects": [{ "title": "Options", "url": "/", "current": true }]
 }

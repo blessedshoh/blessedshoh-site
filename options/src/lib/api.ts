@@ -1,5 +1,5 @@
 import { cleanLeg } from "./state.ts";
-import type { ExplainResponse, GridResponse, Position, RiskResponse } from "./types.ts";
+import type { ConvergenceResponse, ExplainResponse, GridResponse, Position, RiskResponse, TreeResponse } from "./types.ts";
 
 function positionBody(position: Position, rangePct: number) {
   return {
@@ -8,6 +8,7 @@ function positionBody(position: Position, rangePct: number) {
     div_yield: position.div_yield,
     legs: position.legs.map(cleanLeg),
     range_pct: rangePct,
+    exercise: position.exercise ?? "european",
   };
 }
 
@@ -63,4 +64,25 @@ export function fetchExplain(
     { ...positionBody(position, 0.25), price_move_pct: move.pct, days_passed: move.days, vol_shift: move.volPoints / 100 },
     signal,
   );
+}
+
+export interface SingleOption {
+  spot: number;
+  strike: number;
+  days: number;
+  vol: number;
+  rate: number;
+  div_yield: number;
+  kind: "call" | "put";
+  american: boolean;
+}
+
+/** Every node of a small binomial tree, for drawing. */
+export function fetchTree(apiBase: string, option: SingleOption, steps: number, signal?: AbortSignal) {
+  return post<TreeResponse>(`${apiBase}/options/tree`, { ...option, steps }, signal);
+}
+
+/** Tree prices for 1 to 100 steps, both methods. */
+export function fetchConvergence(apiBase: string, option: SingleOption, signal?: AbortSignal) {
+  return post<ConvergenceResponse>(`${apiBase}/options/convergence`, { ...option, max_steps: 100 }, signal);
 }

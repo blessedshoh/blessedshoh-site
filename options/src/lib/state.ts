@@ -54,6 +54,7 @@ export function clonePosition(position: Position): Position {
     rate: position.rate,
     div_yield: position.div_yield,
     legs: position.legs.map(cleanLeg),
+    exercise: position.exercise === "american" ? "american" : "european",
   };
 }
 
@@ -80,6 +81,7 @@ export function encodeState(position: Position, rangePct: number): string {
       r: position.rate,
       q: position.div_yield,
       g: rangePct,
+      x: position.exercise === "american" ? 1 : 0,
       l: position.legs.map((leg) =>
         leg.kind === "stock" ? ["s", leg.quantity] : [leg.kind[0], leg.quantity, leg.strike, leg.days, leg.vol],
       ),
@@ -104,6 +106,7 @@ export function decodeState(text: string): { position: Position; rangePct: numbe
       rate: Number(raw.r ?? 0),
       div_yield: Number(raw.q ?? 0),
       legs,
+      exercise: raw.x === 1 ? "american" : "european",
     };
     const rangePct = Number(raw.g ?? 0.25);
     if (!isValidPosition(position) || !inside(rangePct, LIMITS.range)) return null;

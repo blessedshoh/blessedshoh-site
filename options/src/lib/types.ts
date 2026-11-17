@@ -21,6 +21,31 @@ export interface Position {
   rate: number;
   div_yield: number;
   legs: Leg[];
+  /** "american" values every option with a binomial tree that allows early exercise. */
+  exercise?: Exercise;
+}
+
+export type Exercise = "european" | "american";
+
+export interface TreeResponse {
+  /** Row i holds the i + 1 nodes after i steps, lowest price first. */
+  prices: number[][];
+  values: number[][];
+  exercise: boolean[][];
+  p: number;
+  u: number;
+  d: number;
+  dt_days: number;
+  european_value: number;
+  american_value: number;
+}
+
+export interface ConvergenceResponse {
+  steps: number[];
+  crr: number[];
+  leisen_reimer: number[];
+  black_scholes: number;
+  reference: number;
 }
 
 export interface Summary {

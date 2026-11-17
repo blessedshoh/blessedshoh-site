@@ -14,10 +14,16 @@ const position = {
     { kind: "put", quantity: -2, strike: 150, days: 30, vol: 0.7 },
     { kind: "stock", quantity: -100 },
   ],
+  exercise: "european",
 };
 
 test("a position survives the trip through a link", () => {
   assert.deepEqual(decodeState(encodeState(position, 0.3)), { position, rangePct: 0.3 });
+});
+
+test("American exercise survives the trip", () => {
+  const american = { ...position, exercise: "american" };
+  assert.equal(decodeState(encodeState(american, 0.25)).position.exercise, "american");
 });
 
 test("labels in any script survive", () => {
