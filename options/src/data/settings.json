@@ -10,7 +10,7 @@
   },
   "default_range_pct": 0.25,
   "risk_defaults": { "move_pct": 0.05, "days": 7, "vol_points": 0 },
-  "flags": { "risk": true, "binomial": true, "chain": true, "sketch": true, "compare": true },
+  "flags": { "risk": true, "binomial": true, "chain": true, "sketch": true, "compare": true, "work": true },
   "banner": null,
   "projects": [{ "title": "Options", "url": "/", "current": true }]
 }

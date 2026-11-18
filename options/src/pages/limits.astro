@@ -1,0 +1,163 @@
+---
+import Doc from "../layouts/Doc.astro";
+
+const sections = [
+  { id: "volatility", title: "Volatility is not constant" },
+  { id: "tails", title: "Prices jump" },
+  { id: "probability", title: "Chance of profit is not a forecast" },
+  { id: "carry", title: "Rates, dividends and costs" },
+  { id: "greeks", title: "Greeks are local" },
+  { id: "structure", title: "Positions and expiries" },
+  { id: "numerics", title: "Numerical error" },
+  { id: "market", title: "No market data" },
+];
+---
+
+<Doc
+  title="Where the model is wrong"
+  kicker="Options risk tool · limits"
+  description="The assumptions behind the options risk tool, where real markets break them, and how much it matters."
+  lede="A model is a set of assumptions. Knowing where they fail matters as much as the formulas, so here they are, roughly in order of how much they matter for the numbers on screen."
+  sections={sections}
+>
+  <h2 id="volatility">Volatility is not constant</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>One number per leg, fixed for its whole life</h3>
+    <p>
+      Black-Scholes assumes each option's volatility stays the same until expiry, whatever the price does. Real implied
+      volatility moves every day, usually rising when equities fall. It also differs by strike (the smile, or skew) and by
+      expiry (the term structure).
+    </p>
+    <p>
+      The tool gives each leg its own volatility, so a position can reflect today's skew. But when the price moves on the
+      chart, each leg keeps the volatility it started with (a "sticky strike" view). In a real sell-off, out-of-the-money
+      puts usually become dearer than that, so the chart understates the value of long puts and the losses on short ones.
+    </p>
+    <p class="fix">
+      Partial remedy in the tool: the volatility slider multiplies every leg's volatility by the same factor, and the
+      scenario grid adds the same number of points to every leg. Neither can steepen the skew or twist the term
+      structure.
+    </p>
+  </div>
+
+  <h2 id="tails">Prices jump</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>Log-returns are assumed normal; real ones have fat tails</h3>
+    <p>
+      The model's price moves are continuous and lognormal. Real prices gap overnight, jump on earnings and crash more
+      often than a normal distribution allows. Large moves are several times more common than the model says, so it
+      understates the risk of short options far from the money and of any position that loses in a gap.
+    </p>
+    <p class="fix">
+      Earnings are the clearest case: implied volatility is high before the announcement and collapses after it. Splitting
+      that out is planned as the IV-crush lab.
+    </p>
+  </div>
+
+  <h2 id="probability">Chance of profit is not a forecast</h2>
+  <div class="limit">
+    <span class="tag">Often misread</span>
+    <h3>It is the market's risk-neutral probability</h3>
+    <p>
+      The headline chance of profit assumes the stock grows at the interest rate. That is the distribution under which
+      option prices are fair, not a prediction. Real stocks are expected to earn a risk premium, and the tool lets you enter
+      your own expected return to see the difference.
+    </p>
+    <p>
+      Two more simplifications: a position with legs at different volatilities is described by one weighted volatility,
+      and the probability ignores the fat tails above. For a short strangle, the chance of profit can look high while the
+      expected loss in the tail is large. Read it together with the scenario grid, never alone.
+    </p>
+  </div>
+
+  <h2 id="carry">Rates, dividends and costs</h2>
+  <div class="limit">
+    <span class="tag mild">Medium effect</span>
+    <h3>Continuous dividends, one flat rate, no frictions</h3>
+    <ul>
+      <li>
+        <strong>Dividends</strong> are a continuous yield. Real dividends are discrete cash payments on known dates, and the
+        day before an ex-dividend date is exactly when an American call is most often worth exercising. The tree with a
+        smooth yield misses that.
+      </li>
+      <li>
+        <strong>Interest</strong> is one flat, continuously compounded rate for every expiry, with no difference between
+        borrowing and lending, and no cost to borrow stock for short sales.
+      </li>
+      <li>
+        <strong>Trading costs</strong>: no bid-ask spread in the payoff and risk views, no commissions, no margin, and no
+        financing of the premium paid. Only the arbitrage checker uses bids and asks.
+      </li>
+      <li><strong>Contract size</strong> is fixed at 100 shares; adjusted contracts after splits or mergers are not handled.</li>
+    </ul>
+  </div>
+
+  <h2 id="greeks">Greeks are local</h2>
+  <div class="limit">
+    <span class="tag mild">Medium effect</span>
+    <h3>They describe small moves, measured now</h3>
+    <p>
+      Delta, gamma, theta and vega are slopes at today's price, date and volatility. They change as any of those change,
+      which is why the P/L explain shows an "unexplained" part. That part grows quickly with the size of the move and near
+      expiry, where gamma is concentrated at the strike. For large moves, trust the scenario grid, which reprices fully,
+      over the Greeks.
+    </p>
+    <p>
+      American Greeks are measured by nudging the inputs and repricing a tree, so they carry a little numerical noise,
+      especially close to the early-exercise boundary.
+    </p>
+  </div>
+
+  <h2 id="structure">Positions and expiries</h2>
+  <div class="limit">
+    <span class="tag mild">Medium effect</span>
+    <h3>The model stops at the first expiry</h3>
+    <ul>
+      <li>
+        Everything is valued up to the first expiry in the position. For a calendar spread, the "at expiry" curve values
+        the longer leg with Black-Scholes at its remaining time and its starting volatility, which is exactly where the
+        volatility assumption above bites hardest.
+      </li>
+      <li>
+        Early assignment is not modelled. A short American option is valued at its tree price, which includes the early
+        exercise premium, but the tool never assigns it, so the leg never disappears from the position early as it can in
+        practice.
+      </li>
+      <li>
+        Pin risk, settlement details and the choice between exercising and selling an option at expiry are ignored. An
+        option at expiry is worth its intrinsic value, no more.
+      </li>
+    </ul>
+  </div>
+
+  <h2 id="numerics">Numerical error</h2>
+  <div class="limit">
+    <span class="tag mild">Small effect</span>
+    <h3>Small and measured</h3>
+    <table>
+      <thead><tr><th>Where</th><th>Size</th></tr></thead>
+      <tbody>
+        <tr><td>Reading between profit-grid points (European)</td><td>Under 1% of the money at stake, checked across six strategies</td></tr>
+        <tr><td>American grids (31-step tree)</td><td>About 2 cents per share against a 1,601-step tree</td></tr>
+        <tr><td>American single prices (201-step Leisen-Reimer)</td><td>Well under a cent per share</td></tr>
+        <tr><td>Black-Scholes prices and Greeks</td><td>Within 0.000001 of QuantLib</td></tr>
+        <tr><td>Chance of profit</td><td>Exact given the model: a difference of normal probabilities at root-found break-evens</td></tr>
+      </tbody>
+    </table>
+    <p>Model error, the sections above, is far larger than any of these.</p>
+  </div>
+
+  <h2 id="market">No market data</h2>
+  <div class="limit">
+    <span class="tag mild">By design</span>
+    <h3>Everything is typed in</h3>
+    <p>
+      There are no live or delayed quotes. The volatility you enter is an input, not a market observation, and the option
+      chain is a model chain drawn from three smile parameters, not a real one. The tool teaches how a position behaves
+      under stated assumptions. It does not tell you what an option is worth in the market today, and nothing here is
+      investment advice.
+    </p>
+  </div>
+</Doc>

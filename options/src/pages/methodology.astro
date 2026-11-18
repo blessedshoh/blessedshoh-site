@@ -1,0 +1,214 @@
+---
+import Doc from "../layouts/Doc.astro";
+
+const sections = [
+  { id: "pipeline", title: "From inputs to chart" },
+  { id: "pricing", title: "Pricing one option" },
+  { id: "american", title: "American exercise" },
+  { id: "position", title: "A whole position" },
+  { id: "grid", title: "The profit grid" },
+  { id: "probability", title: "Chance of profit" },
+  { id: "risk", title: "Scenarios and P/L explain" },
+  { id: "arbitrage", title: "Chain and arbitrage" },
+  { id: "replication", title: "Payoff sketcher" },
+  { id: "testing", title: "How it is tested" },
+];
+---
+
+<Doc
+  title="Methodology"
+  kicker="Options risk tool · how it works"
+  description="How the options risk tool prices positions: Black-Scholes, binomial trees, the profit grid, risk-neutral probabilities, scenario analysis, arbitrage checks and payoff replication."
+  lede="Every number in the tool comes from a Python engine, quantcore, which is open source and tested against QuantLib. This page sets out the models and numerical methods it uses. The next page lists where those models break down."
+  sections={sections}
+>
+  <h2 id="pipeline">From inputs to chart</h2>
+  <p>
+    The browser does no option maths. When you change a position, it sends the legs, the price, the rate and the dividend
+    yield to a stateless API (FastAPI on Fly.io), which returns the whole profit surface in one answer: profit at every
+    combination of underlying price, date and volatility, plus the Greeks and headline numbers. The date and volatility
+    sliders then read from that surface, so they never wait for the server.
+  </p>
+  <p>
+    The default example's surface is computed once and stored, so the first view loads instantly even while the API is
+    asleep. "Show your work" under the chart asks the API for every intermediate value and prints it inside its formula.
+  </p>
+
+  <h2 id="pricing">Pricing one option</h2>
+  <p>
+    European options are priced with <strong>Black-Scholes-Merton</strong>, with a continuous dividend yield <em>q</em>:
+  </p>
+  <pre>d₁ = [ln(S/K) + (r − q + σ²/2)·T] / (σ√T)
+d₂ = d₁ − σ√T
+
+call = S·e^(−qT)·N(d₁) − K·e^(−rT)·N(d₂)
+put  = K·e^(−rT)·N(−d₂) − S·e^(−qT)·N(−d₁)</pre>
+  <p class="where">
+    S is the underlying price, K the strike, T the years to expiry (calendar days / 365), σ the implied volatility, r the
+    continuously compounded interest rate, and N the standard normal distribution function.
+  </p>
+  <p>
+    Greeks use their closed forms: delta = ±e^(−qT)·N(±d₁), gamma = e^(−qT)·φ(d₁)/(Sσ√T), vega = S·e^(−qT)·φ(d₁)·√T, plus
+    theta and rho. The tool reports theta per calendar day and vega per volatility point. When no randomness is left (at
+    expiry, or with zero volatility), d₁ and d₂ are set to ±∞, so the same formulas give intrinsic value without a special
+    case.
+  </p>
+
+  <h2 id="american">American exercise</h2>
+  <p>
+    With American exercise switched on, every option is valued on a <strong>binomial tree</strong>. Time is cut into n
+    steps; in each step the price moves up by a factor u or down by d, with risk-neutral probability
+  </p>
+  <pre>p = (e^((r − q)·Δt) − d) / (u − d)</pre>
+  <p>
+    Working back from expiry, each node is worth the larger of holding on (the discounted average of the two nodes after
+    it) and exercising now. That one maximum is the whole difference from a European option.
+  </p>
+  <ul>
+    <li>
+      <strong>Leisen-Reimer</strong> is the default. It chooses u, d and p (Peizer-Pratt inversion) so the tree's
+      probabilities match the normal distribution, which converges smoothly. With 201 steps, prices are accurate to well
+      under a cent per share.
+    </li>
+    <li>
+      <strong>Cox-Ross-Rubinstein</strong> (u = e^(σ√Δt), d = 1/u) is shown in the tree explorer, because its price
+      zig-zags around the true value as n grows. The engine also falls back to it very deep in or out of the money, where
+      Leisen-Reimer's probability rounds to exactly 0 or 1.
+    </li>
+  </ul>
+  <p>
+    A tree has no closed-form Greeks, so American Greeks are measured by nudging each input and repricing: the price by
+    ±1%, the date by a quarter of a day, and volatility by ±0.5 points.
+  </p>
+
+  <h2 id="position">A whole position</h2>
+  <p>A position is the price plus up to eight legs: calls, puts or the stock, long or short.</p>
+  <pre>entry cost = Σ size × entry price          size = contracts × 100, or shares
+value      = Σ size × model price at a given price, date and volatility
+profit     = value − entry cost
+Greeks     = Σ size × per-share Greeks</pre>
+  <p>
+    The entry price is the one you type, or the model price today if you leave it empty. A positive entry cost is a net
+    debit and a negative one a net credit. Valuation stops at the first expiry in the position: a leg that has expired has
+    settled. Break-evens are found by scanning the expiry payoff across a wide range of prices for changes of sign and
+    refining each one with <strong>Brent's method</strong>. The same scan gives the maximum profit and loss, and the
+    slope far above the highest strike decides whether either is unlimited.
+  </p>
+
+  <h2 id="grid">The profit grid</h2>
+  <table>
+    <thead><tr><th>Axis</th><th>Points</th><th>Spacing</th></tr></thead>
+    <tbody>
+      <tr><td>Price</td><td>81, plus the price and every strike</td><td>Even, across ± the chosen range around today's price</td></tr>
+      <tr><td>Date</td><td>25</td><td>Cubic, packed toward expiry, where value changes fastest</td></tr>
+      <tr><td>Volatility</td><td>17 multipliers</td><td>Geometric, from 0.25× to 3× each leg's volatility, with 1× exactly</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Strikes are placed exactly on the price axis so the payoff's kinks are drawn sharply. The date spacing was chosen by
+    measurement: across six strategies, the worst interpolation error was 15% of the money at stake with even spacing,
+    2.4% with quadratic spacing and under 0.7% with cubic, using the same number of points.
+  </p>
+  <p>
+    Between grid points the browser interpolates: in straight lines along price and volatility, and along the
+    <strong>square root of the time left</strong> for the date, because that is how time value shrinks. Interpolating in
+    plain days would overstate the decay in the last hours. The engine runs the same arithmetic in its tests, and a fixture
+    checks that the browser's version gives identical answers.
+  </p>
+  <p>
+    American grids are slower to price, so they use 17 dates, 9 volatility levels and a 31-step tree, which stays within
+    about 2 cents per share of a 1,601-step tree. The entry cost always comes from the full 201-step tree.
+  </p>
+
+  <h2 id="probability">Chance of profit</h2>
+  <p>Black-Scholes assumes the log of the price at expiry is normally distributed:</p>
+  <pre>ln S_T ~ Normal( ln S + (μ − q − σ²/2)·T ,  σ²·T )</pre>
+  <p>
+    With μ equal to the interest rate this is the <strong>risk-neutral</strong> distribution, the one option prices
+    imply. The tool uses it by default, and you can enter your own expected return μ to see a real-world view. A
+    position with legs at different volatilities needs one σ, so each leg's volatility is weighted by |size| × vega: the
+    leg the position depends on most counts most.
+  </p>
+  <p>
+    The price axis is cut at the break-evens, and the chance of profit is the probability of finishing in the profitable
+    pieces, each of which is a difference of two normal probabilities. The average profit at expiry is integrated
+    numerically over 8,001 points, eight standard deviations either side. Under the risk-neutral distribution it should
+    equal the interest earned on the entry cost, which makes a useful self-check.
+  </p>
+
+  <h2 id="risk">Scenarios and P/L explain</h2>
+  <p>
+    The <strong>scenario grid</strong> reprices the position for every combination of a price shock (−20% to +20%) and a
+    parallel volatility shift (−20 to +20 points), now or a few days ahead. This is how a risk desk reports exposure: it
+    shows the loss in a sell-off with rising volatility, which a payoff chart at one volatility cannot.
+  </p>
+  <p>The <strong>P/L explain</strong> splits a change in value into what each Greek predicts, measured before the move:</p>
+  <pre>ΔV ≈ delta·ΔS + ½·gamma·ΔS² + theta·days + vega·Δσ  (+ unexplained)</pre>
+  <p>
+    The unexplained part is the exact repriced change minus that second-order approximation. When it is large, the move
+    was too big for the Greeks to describe, which is itself useful to know.
+  </p>
+
+  <h2 id="arbitrage">Chain and arbitrage</h2>
+  <p>
+    The model chain draws a volatility smile from three numbers in log-moneyness k = ln(K/F), where F is the forward
+    price:
+  </p>
+  <pre>σ(k) = ATM volatility + skew·k + curvature·k²</pre>
+  <p>
+    It prices every listed strike with Black-Scholes at its own volatility and quotes a bid and ask a chosen percentage
+    either side of that price; you can also type quotes in by hand. The
+    arbitrage checker then works on bids and asks (buys at the ask, sells at the bid) in two ways:
+  </p>
+  <ul>
+    <li>
+      <strong>Rules:</strong> price bounds, put-call parity, prices that move the right way with strike, vertical spreads
+      worth no more than their widest payoff, and butterflies that never pay you to hold them. With American exercise,
+      the bounds include the value of exercising immediately. Each violation comes with the trade that captures it.
+    </li>
+    <li>
+      <strong>Solver:</strong> one linear programme (HiGHS, through SciPy) searches every combination of the quoted
+      options, the stock and cash for the portfolio that pays the most today while never losing at expiry. If the best
+      such portfolio pays nothing, a risk-neutral distribution consistent with the prices exists. This is the fundamental
+      theorem of asset pricing, checked numerically. It catches multi-strike arbitrage that the single rules miss. It
+      assumes European exercise, so it is skipped for American options.
+    </li>
+  </ul>
+
+  <h2 id="replication">Payoff sketcher</h2>
+  <p>
+    Any expiry payoff that is a straight line between listed strikes can be built exactly from cash, the stock and calls.
+    The cash sets the height at zero, the stock the starting slope, and at each strike where the slope changes you hold
+    calls equal to the change. For any other drawn shape, a linear programme over the listed calls, puts, stock and cash
+    finds either the closest portfolio (smallest largest gap) or the cheapest one that never pays less than the drawing.
+    A small penalty on total size picks the simplest of portfolios that are equivalent by put-call parity. A leg limit
+    turns the problem into a mixed-integer programme.
+  </p>
+
+  <h2 id="testing">How it is tested</h2>
+  <p>The engine has <strong>1,906 automated tests</strong>. They check that:</p>
+  <ul>
+    <li>
+      European prices and all five Greeks agree with <strong>QuantLib</strong> to within 0.000001 across 1,536
+      combinations of price, strike, expiry, volatility, rate and dividend yield.
+    </li>
+    <li>
+      The Leisen-Reimer tree agrees with QuantLib's own Leisen-Reimer engine to within 0.00000001 on 192 American
+      options.
+    </li>
+    <li>Prices match textbook values from Hull, and satisfy put-call parity and the no-arbitrage bounds on random inputs.</li>
+    <li>Every Black-Scholes Greek matches a finite-difference estimate.</li>
+    <li>Binomial trees converge to Black-Scholes, and American prices are never below European ones.</li>
+    <li>Interpolation on the profit grid stays within 1% of the money at stake across six strategies.</li>
+    <li>The chance of profit matches a Monte Carlo simulation, and the average profit matches its closed form.</li>
+    <li>
+      Each arbitrage rule catches a planted violation, sensible smiles show none, and the solver finds an arbitrage the
+      single rules miss.
+    </li>
+    <li>"Show your work" values rebuild the engine's own numbers exactly, step by step.</li>
+  </ul>
+  <p>
+    The source, tests and walkthrough notebooks are at
+    <a href="https://github.com/blessedshoh/quant-core">github.com/blessedshoh/quant-core</a>.
+  </p>
+</Doc>

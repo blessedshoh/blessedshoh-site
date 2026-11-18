@@ -159,3 +159,48 @@ export interface Settings {
   banner: string | null;
   projects: { title: string; url: string; current?: boolean }[];
 }
+
+/** Every step behind the headline numbers, for the "show your work" panel. Values are for today. */
+export interface LegWork {
+  kind: LegKind;
+  quantity: number;
+  size: number;
+  strike: number | null;
+  days: number | null;
+  years: number | null;
+  vol: number | null;
+  d1: number | null;
+  d2: number | null;
+  /** N(d1) for a call, N(-d1) for a put. */
+  n_d1: number | null;
+  /** N(d2) for a call, N(-d2) for a put. */
+  n_d2: number | null;
+  spot_discount: number | null;
+  strike_discount: number | null;
+  european_price: number | null;
+  american_price: number | null;
+  entry_price: number;
+  entry_price_stated: boolean;
+  cost: number;
+  greeks: Record<GreekName, number>;
+  contribution: Record<GreekName, number>;
+}
+
+export type GreekName = "delta" | "gamma" | "theta_per_day" | "vega_per_point";
+
+export interface WorkResponse {
+  exercise: Exercise;
+  legs: LegWork[];
+  entry_cost: number;
+  greeks: Record<GreekName, number>;
+  chance: {
+    days: number;
+    vol: number;
+    /** [leg index, vol, weight]. */
+    vol_weights: [number, number, number][];
+    mean_log: number;
+    sd_log: number;
+    intervals: { low: number; high: number | null; profitable: boolean; probability: number }[];
+    chance: number;
+  } | null;
+}

@@ -9,6 +9,7 @@ import type {
   Quote,
   RiskResponse,
   TreeResponse,
+  WorkResponse,
 } from "./types.ts";
 
 function positionBody(position: Position, rangePct: number) {
@@ -149,4 +150,9 @@ export function fetchReplicate(
   signal?: AbortSignal,
 ) {
   return post<ReplicateResponse>(`${apiBase}/options/replicate`, request, signal);
+}
+
+/** The intermediate values behind the cost, Greeks and chance of profit. */
+export function fetchWork(apiBase: string, position: Position, signal?: AbortSignal) {
+  return post<WorkResponse>(`${apiBase}/options/work`, positionBody(position, 0.25), signal);
 }

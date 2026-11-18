@@ -7,11 +7,13 @@ interface Props {
   title: string;
   description: string;
   links?: { title: string; url: string; current?: boolean }[];
+  /** Tools open in Terminal; reading pages pass "paper". */
+  theme?: "paper" | "terminal";
 }
 
-const { title, description, links = [] } = Astro.props;
-// Tools open in Terminal. A visitor's own choice, if they made one, wins.
-const defaultTheme = "terminal";
+const { title, description, links = [], theme = "terminal" } = Astro.props;
+// A visitor's own choice, if they made one, wins over this default.
+const defaultTheme = theme;
 ---
 
 <!doctype html>

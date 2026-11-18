@@ -18,6 +18,7 @@
   import ComparePanel from "./ComparePanel.svelte";
   import SketchPanel from "./SketchPanel.svelte";
   import TreeExplorer from "./TreeExplorer.svelte";
+  import WorkPanel from "./WorkPanel.svelte";
 
   interface Props {
     settings: Settings;
@@ -455,6 +456,10 @@
   {/if}
 
   <!-- Each panel's first use in a page view is counted for the admin dashboard. -->
+  {#if settings.flags.work}
+    <WorkPanel {apiBase} position={priced} onopen={() => track("work")} />
+  {/if}
+
   {#if settings.flags.risk}
     <div class="use" data-track="risk" onpointerdown={used} onkeydown={used} role="presentation">
       <RiskPanel
@@ -503,8 +508,11 @@
   <LegsEditor bind:position {entryPrices} onreset={resetPosition} />
 
   <p class="caption">
-    European options valued with the Black-Scholes model, using the volatility and interest rate entered above. The
-    numbers are illustrative and are not investment advice.
+    {position.exercise === "american"
+      ? "American options valued on Leisen-Reimer binomial trees that allow early exercise"
+      : "European options valued with the Black-Scholes model"}, using the volatility and interest rate entered above. The
+    numbers are illustrative and are not investment advice. <a href="/methodology">How it works</a> ·
+    <a href="/limits">Where the model is wrong</a>
   </p>
 </div>
 
@@ -667,6 +675,12 @@
     max-width: 78ch;
     font: italic 400 14px/1.5 var(--serif);
     color: var(--muted);
+  }
+  .caption a {
+    font-style: normal;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--soft);
   }
 
   @media (max-width: 860px) {

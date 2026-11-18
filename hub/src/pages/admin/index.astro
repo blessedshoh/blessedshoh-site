@@ -2,7 +2,9 @@
 import { env } from "cloudflare:workers";
 import { listProjects } from "@blessedshoh/kit/hub-data";
 import Admin from "../../layouts/Admin.astro";
+import builtIn from "../../../../options/src/data/settings.json";
 import { numbers, optionsSettings, recentChanges } from "../../lib/admin.ts";
+import { OPTION_FLAGS } from "../../lib/validate.ts";
 
 const [stats, changes, projects, options] = await Promise.all([
   numbers(env.DB, 30),
@@ -12,7 +14,8 @@ const [stats, changes, projects, options] = await Promise.all([
 ]);
 const sum = (days: number) => stats.series.slice(-days).reduce((total, d) => total + d.n, 0);
 const toolUse = stats.events.filter((e) => e.event === "priced").reduce((total, e) => total + e.n, 0);
-const switchesOn = Object.values(options.flags).filter(Boolean).length;
+const flags: Record<string, boolean> = { ...builtIn.flags, ...options.flags };
+const switchesOn = OPTION_FLAGS.filter((f) => flags[f.key] !== false).length;
 const when = (at: string) => at.replace("T", " ").slice(0, 16);
 ---
 
@@ -41,7 +44,7 @@ const when = (at: string) => at.replace("T", " ").slice(0, 16);
       <h2>At a glance</h2>
       <ul class="facts">
         <li><span>Projects</span><b class="num">{projects.filter((p) => p.status === "live").length} live · {projects.filter((p) => p.status === "soon").length} soon · {projects.filter((p) => p.status === "hidden").length} hidden</b></li>
-        <li><span>Options tool switches</span><b class="num">{switchesOn} of 5 on</b></li>
+        <li><span>Options tool switches</span><b class="num">{switchesOn} of {OPTION_FLAGS.length} on</b></li>
         <li><span>Options notice</span><b>{options.banner ? "Shown" : "Off"}</b></li>
         <li><span>Options default example</span><b>{options.example ? `Custom, saved ${when(options.example.saved_at)}` : "Built-in"}</b></li>
       </ul>
