@@ -1,0 +1,45 @@
+---
+import { env } from "cloudflare:workers";
+import { headerLinks, toolSettings, type HeaderLink } from "@blessedshoh/kit/hub-data";
+import LabApp from "../components/LabApp.svelte";
+import builtIn from "../data/settings.json";
+import Base from "../layouts/Base.astro";
+import { curvePayload, type StoredCurve } from "../lib/curve-data.ts";
+
+interface HubSettings {
+  flags?: Record<string, boolean>;
+  banner?: string | null;
+}
+
+// Built-in settings ship with the page; the dashboard's are laid on top. The stored
+// Treasury curve is read here so the published par yields draw before any API call.
+const today = new Date().toISOString().slice(0, 10);
+let hub: HubSettings | null = null;
+let links: HeaderLink[] = builtIn.projects;
+let initial: StoredCurve | null = null;
+let problem = "";
+try {
+  const [stored, fromHub, curve] = await Promise.all([
+    toolSettings<HubSettings>(env.DB, "bonds"),
+    headerLinks(env.DB, "bonds"),
+    curvePayload(env.DB, null, today),
+  ]);
+  hub = stored;
+  if (fromHub.length > 0) links = fromHub;
+  if (curve.status === 200) initial = curve.body;
+  else problem = curve.body.error;
+} catch {
+  problem = "The stored Treasury curve could not be read.";
+}
+
+const flags = { ...builtIn.flags, ...hub?.flags };
+const apiBase = import.meta.env.PUBLIC_API_BASE ?? builtIn.api_base;
+---
+
+<Base
+  title="Fixed income lab · blessedshoh"
+  description="Today's Treasury curve, a bond pricer with key-rate durations, a hedge calculator, and the coursework models behind them. Priced in Python."
+  links={links}
+>
+  <LabApp client:load {initial} {problem} {flags} banner={hub?.banner ?? null} {apiBase} {today} />
+</Base>

@@ -1,0 +1,86 @@
+// The lab's state lives in the page address so any view can be shared as a link.
+// Format: #l=<base64url of a compact JSON object>. Nothing read from an address is trusted.
+
+import { AREAS, BASICS_MODELS, HEDGE_TENORS, type Area, type BasicsInput, type BondInput, type HedgeInput, type LabState } from "./types.ts";
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const inside = (value: unknown, low: number, high: number): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= low && value <= high;
+
+export function isIsoDay(text: unknown): text is string {
+  if (typeof text !== "string" || !ISO_DAY.test(text)) return false;
+  const [y, m, d] = text.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+export function isValidBond(bond: BondInput | undefined): bond is BondInput {
+  if (!bond || (bond.preset !== "UST" && bond.preset !== "USD_CORP")) return false;
+  if (!inside(bond.coupon, 0, 20) || !isIsoDay(bond.maturity)) return false;
+  if (bond.mode !== "curve" && bond.mode !== "yield" && bond.mode !== "price") return false;
+  if (bond.spreadBp !== undefined && !inside(bond.spreadBp, -500, 5000)) return false;
+  if (bond.yield !== undefined && !inside(bond.yield, -5, 50)) return false;
+  if (bond.cleanPrice !== undefined && !inside(bond.cleanPrice, 1, 500)) return false;
+  return true;
+}
+
+export function isValidHedge(hedge: HedgeInput | undefined): hedge is HedgeInput {
+  if (!hedge || !inside(hedge.faceAmount, 1, 1e10)) return false;
+  if (hedge.mode !== "dv01" && hedge.mode !== "key-rate") return false;
+  if (!Array.isArray(hedge.tenors) || new Set(hedge.tenors).size !== hedge.tenors.length) return false;
+  if (!hedge.tenors.every((t) => (HEDGE_TENORS as readonly string[]).includes(t))) return false;
+  return hedge.mode === "dv01" ? hedge.tenors.length === 1 : hedge.tenors.length >= 1 && hedge.tenors.length <= 4;
+}
+
+export function isValidBasics(basics: BasicsInput | undefined): basics is BasicsInput {
+  if (!basics || !(BASICS_MODELS as readonly string[]).includes(basics.model)) return false;
+  if (typeof basics.inputs !== "object" || basics.inputs === null || Array.isArray(basics.inputs)) return false;
+  return Object.values(basics.inputs).every(
+    (v) => typeof v === "boolean" || typeof v === "string" || (typeof v === "number" && Number.isFinite(v)) || (Array.isArray(v) && v.every((x) => typeof x === "number" && Number.isFinite(x))),
+  );
+}
+
+function toBase64Url(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(text: string): string {
+  const padded = text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4);
+  return new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
+}
+
+export function encodeLab(state: LabState): string {
+  return toBase64Url(
+    JSON.stringify({
+      v: 1,
+      a: state.area,
+      ...(state.day ? { d: state.day } : {}),
+      ...(state.bond ? { b: state.bond } : {}),
+      ...(state.hedge ? { h: state.hedge } : {}),
+      ...(state.basics ? { m: state.basics } : {}),
+    }),
+  );
+}
+
+export function decodeLab(text: string): LabState | null {
+  try {
+    const raw = JSON.parse(fromBase64Url(text));
+    if (raw?.v !== 1 || !(AREAS as readonly string[]).includes(raw.a)) return null;
+    if (raw.d !== undefined && !isIsoDay(raw.d)) return null;
+    if (raw.b !== undefined && !isValidBond(raw.b)) return null;
+    if (raw.h !== undefined && !isValidHedge(raw.h)) return null;
+    if (raw.m !== undefined && !isValidBasics(raw.m)) return null;
+    return {
+      area: raw.a as Area,
+      day: raw.d ?? null,
+      ...(raw.b ? { bond: raw.b as BondInput } : {}),
+      ...(raw.h ? { hedge: raw.h as HedgeInput } : {}),
+      ...(raw.m ? { basics: raw.m as BasicsInput } : {}),
+    };
+  } catch {
+    return null;
+  }
+}

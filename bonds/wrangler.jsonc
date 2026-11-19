@@ -1,0 +1,23 @@
+// The fixed income lab on Cloudflare. Static files are served as they are; the page is
+// rendered per visit from the hub database (settings, header links, the Treasury curve).
+// Deploy from this folder:  pnpm run deploy
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "blessedshoh-bonds",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // The hub's database. Its tables are created and changed from the hub folder only.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blessedshoh-hub",
+      "database_id": "63423783-b380-42da-8d64-2b994eec20eb"
+    }
+  ],
+  // Cloudflare creates the DNS record and certificate for this address itself.
+  "routes": [{ "pattern": "bonds.blessedshoh.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "observability": { "enabled": true }
+}

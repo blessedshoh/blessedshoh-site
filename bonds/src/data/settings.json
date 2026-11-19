@@ -1,0 +1,6 @@
+{
+  "api_base": "https://api.blessedshoh.dev",
+  "flags": { "curve": true, "price": true, "hedge": true, "basics": true },
+  "banner": null,
+  "projects": [{ "title": "Fixed income lab", "url": "/", "current": true }]
+}

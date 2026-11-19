@@ -3,6 +3,7 @@ packages:
   - options
   - hub
   - data
+  - bonds
 allowBuilds:
   esbuild: true
   workerd: true

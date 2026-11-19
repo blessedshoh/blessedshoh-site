@@ -1,0 +1,26 @@
+{
+  "name": "bonds",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "test": "node --test tests/*.test.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "deploy": "astro build && wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "14.4.4",
+    "@astrojs/svelte": "^9.1.6",
+    "@blessedshoh/kit": "workspace:*",
+    "astro": "^7.4.12",
+    "svelte": "^5.57.3"
+  },
+  "devDependencies": {
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.3",
+    "wrangler": "4.156.2"
+  }
+}

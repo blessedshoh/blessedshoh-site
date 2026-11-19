@@ -11,6 +11,34 @@ importers:
 
   .: {}
 
+  bonds:
+    dependencies:
+      '@astrojs/cloudflare':
+        specifier: 14.4.4
+        version: 14.4.4(astro@7.4.12(esbuild@0.28.2)(yaml@2.9.1))(esbuild@0.28.2)(workerd@1.20261102.1)(wrangler@4.156.2)(yaml@2.9.1)
+      '@astrojs/svelte':
+        specifier: ^9.1.6
+        version: 9.1.6(astro@7.4.12(esbuild@0.28.2)(yaml@2.9.1))(esbuild@0.28.2)(svelte@5.57.3)(typescript@6.0.3)(yaml@2.9.1)
+      '@blessedshoh/kit':
+        specifier: workspace:*
+        version: link:../kit
+      astro:
+        specifier: ^7.4.12
+        version: 7.4.12(esbuild@0.28.2)(yaml@2.9.1)
+      svelte:
+        specifier: ^5.57.3
+        version: 5.57.3
+    devDependencies:
+      svelte-check:
+        specifier: ^4.7.8
+        version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      wrangler:
+        specifier: 4.156.2
+        version: 4.156.2
+
   data:
     devDependencies:
       wrangler:
