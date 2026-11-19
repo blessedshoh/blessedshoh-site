@@ -50,3 +50,35 @@ test("links that break the limits are refused", () => {
 test("damaged links are refused instead of crashing", () => {
   for (const text of ["", "not-a-link", "eyJ2IjoyfQ", "%%%"]) assert.equal(decodeState(text), null);
 });
+
+// --- earnings events ----------------------------------------------------------
+
+const withEvent = { ...position, legs: [position.legs[0]], event: { days: 5, move: 0.08 } };
+const raw = (object) => Buffer.from(JSON.stringify(object)).toString("base64url");
+
+test("a link with an earnings event round-trips", () => {
+  assert.deepEqual(decodeState(encodeState(withEvent, 0.25)).position.event, { days: 5, move: 0.08 });
+});
+
+test("links made before earnings existed still open, with no event", () => {
+  // Made by the tool before this change.
+  const old = "eyJ2IjoxLCJ0IjoiWFlaIiwicyI6MTY2LCJyIjowLjA0LCJxIjowLCJnIjowLjI1LCJ4IjowLCJsIjpbWyJjIiwxMCwxODAsMzAsMC42NF1dfQ";
+  const decoded = decodeState(old);
+  assert.ok(decoded);
+  assert.equal(decoded.position.event, undefined);
+  assert.equal(decoded.position.legs[0].strike, 180);
+});
+
+test("a position without an event puts nothing about it in the link", () => {
+  const plain = { ...position, legs: [position.legs[0]] };
+  const json = JSON.parse(Buffer.from(encodeState(plain, 0.25), "base64url").toString());
+  assert.equal("e" in json, false);
+});
+
+test("links with a bad earnings event are refused", () => {
+  const base = { v: 1, t: "X", s: 166, r: 0.04, q: 0, g: 0.25, x: 0, l: [["c", 1, 165, 30, 0.7]] };
+  assert.equal(decodeState(raw({ ...base, e: [0.2, 0.08] })), null);
+  assert.equal(decodeState(raw({ ...base, e: [5, 0.9] })), null);
+  assert.equal(decodeState(raw({ ...base, e: "soon" })), null);
+  assert.ok(decodeState(raw({ ...base, e: [5, 0.08] })));
+});

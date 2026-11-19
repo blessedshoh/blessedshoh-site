@@ -25,6 +25,23 @@ export interface Position {
   legs: Leg[];
   /** "american" values every option with a binomial tree that allows early exercise. */
   exercise?: Exercise;
+  /** An earnings announcement, or undefined for none. */
+  event?: EarningsEvent;
+}
+
+/** An earnings announcement: days from today, and the one-day move (0.08 is about ±8%). */
+export interface EarningsEvent {
+  days: number;
+  move: number;
+}
+
+/** Per leg alive at the announcement: volatility before and after, and how much the position depends on it. */
+export interface EventLeg {
+  index: number;
+  base_vol: number;
+  vol_before: number;
+  vol_after: number;
+  weight: number;
 }
 
 export type Exercise = "european" | "american";
@@ -98,6 +115,7 @@ export interface Summary {
   /** A negative number. null means unlimited. */
   max_loss: number | null;
   legs: { entry_price: number }[];
+  event: { days: number; move: number; legs: EventLeg[] } | null;
 }
 
 export interface GridResponse {
@@ -184,12 +202,16 @@ export interface LegWork {
   cost: number;
   greeks: Record<GreekName, number>;
   contribution: Record<GreekName, number>;
+  /** Everyday volatility once the earnings jump is taken out; null without one. */
+  base_vol: number | null;
+  vol_after_event: number | null;
 }
 
 export type GreekName = "delta" | "gamma" | "theta_per_day" | "vega_per_point";
 
 export interface WorkResponse {
   exercise: Exercise;
+  event: EarningsEvent | null;
   legs: LegWork[];
   entry_cost: number;
   greeks: Record<GreekName, number>;
@@ -203,4 +225,12 @@ export interface WorkResponse {
     intervals: { low: number; high: number | null; profitable: boolean; probability: number }[];
     chance: number;
   } | null;
+}
+
+/** The earnings move two expiries imply. */
+export interface ImpliedMoveResponse {
+  move: number;
+  expected_abs_move: number;
+  base_vol: number;
+  event_variance_share: number;
 }

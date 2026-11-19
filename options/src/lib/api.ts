@@ -5,6 +5,7 @@ import type {
   ConvergenceResponse,
   ExplainResponse,
   GridResponse,
+  ImpliedMoveResponse,
   Position,
   Quote,
   RiskResponse,
@@ -20,6 +21,7 @@ function positionBody(position: Position, rangePct: number) {
     legs: position.legs.map(cleanLeg),
     range_pct: rangePct,
     exercise: position.exercise ?? "european",
+    ...(position.event ? { event: { days: position.event.days, move: position.event.move } } : {}),
   };
 }
 
@@ -155,4 +157,13 @@ export function fetchReplicate(
 /** The intermediate values behind the cost, Greeks and chance of profit. */
 export function fetchWork(apiBase: string, position: Position, signal?: AbortSignal) {
   return post<WorkResponse>(`${apiBase}/options/work`, positionBody(position, 0.25), signal);
+}
+
+/** The earnings move and everyday volatility implied by two expiries after the announcement. */
+export function fetchImpliedMove(
+  apiBase: string,
+  request: { near_days: number; near_vol: number; far_days: number; far_vol: number },
+  signal?: AbortSignal,
+) {
+  return post<ImpliedMoveResponse>(`${apiBase}/options/implied-move`, request, signal);
 }

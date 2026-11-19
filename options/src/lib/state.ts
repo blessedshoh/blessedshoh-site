@@ -4,7 +4,7 @@
 // Nothing read from an address is trusted: it is checked against the same
 // limits the API enforces before it reaches the screen or the server.
 
-import type { Leg, LegKind, Position } from "./types.ts";
+import type { EarningsEvent, Leg, LegKind, Position } from "./types.ts";
 
 export const LIMITS = {
   legs: 8,
@@ -17,6 +17,8 @@ export const LIMITS = {
   divYield: [0, 0.5],
   range: [0.02, 0.9],
   label: 12,
+  eventDays: [1, 1825],
+  eventMove: [0.005, 0.5],
 } as const;
 
 const KIND_FROM_CODE: Record<string, LegKind> = { c: "call", p: "put", s: "stock" };
@@ -31,8 +33,13 @@ export function isValidLeg(leg: Leg): boolean {
   return inside(leg.strike, LIMITS.strike) && inside(leg.days, LIMITS.days) && inside(leg.vol, LIMITS.vol);
 }
 
+export function isValidEvent(event: EarningsEvent): boolean {
+  return inside(event?.days, LIMITS.eventDays) && inside(event?.move, LIMITS.eventMove);
+}
+
 export function isValidPosition(position: Position): boolean {
   return (
+    (position.event === undefined || isValidEvent(position.event)) &&
     inside(position.spot, LIMITS.spot) &&
     inside(position.rate, LIMITS.rate) &&
     inside(position.div_yield, LIMITS.divYield) &&
@@ -57,6 +64,7 @@ export function clonePosition(position: Position): Position {
     div_yield: position.div_yield,
     legs: position.legs.map(cleanLeg),
     exercise: position.exercise === "american" ? "american" : "european",
+    ...(position.event ? { event: { days: position.event.days, move: position.event.move } } : {}),
   };
 }
 
@@ -88,6 +96,7 @@ export function encodeState(position: Position, rangePct: number): string {
         const base = leg.kind === "stock" ? ["s", leg.quantity] : [leg.kind[0], leg.quantity, leg.strike, leg.days, leg.vol];
         return leg.entry_price === undefined ? base : [...base, leg.entry_price];
       }),
+      ...(position.event ? { e: [position.event.days, position.event.move] } : {}),
     }),
   );
 }
@@ -113,6 +122,10 @@ export function decodeState(text: string): { position: Position; rangePct: numbe
       legs,
       exercise: raw.x === 1 ? "american" : "european",
     };
+    if (raw.e !== undefined) {
+      if (!Array.isArray(raw.e) || raw.e.length !== 2) return null;
+      position.event = { days: Number(raw.e[0]), move: Number(raw.e[1]) };
+    }
     const rangePct = Number(raw.g ?? 0.25);
     if (!isValidPosition(position) || !inside(rangePct, LIMITS.range)) return null;
     return { position, rangePct };
