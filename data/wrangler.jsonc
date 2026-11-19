@@ -1,0 +1,21 @@
+// blessedshoh-data: a scheduled Worker that loads the U.S. Treasury's daily par yield
+// curve into the hub database. No routes. Deploy from this folder:  pnpm run deploy
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "blessedshoh-data",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blessedshoh-hub",
+      "database_id": "63423783-b380-42da-8d64-2b994eec20eb"
+    }
+  ],
+  // 23:30 UTC catches the usual end-of-day publication; 03:30 UTC catches a late one.
+  "triggers": { "crons": ["30 23 * * *", "30 3 * * *"] },
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "observability": { "enabled": true }
+}
