@@ -19,6 +19,7 @@
   import SketchPanel from "./SketchPanel.svelte";
   import TreeExplorer from "./TreeExplorer.svelte";
   import WorkPanel from "./WorkPanel.svelte";
+  import EarningsControl from "./EarningsControl.svelte";
 
   interface Props {
     settings: Settings;
@@ -36,7 +37,7 @@
 
   /** Everything that changes the numbers. The label does not, so it is left out. */
   const pricingKey = (value: Position, range: number) =>
-    JSON.stringify([value.spot, value.rate, value.div_yield, value.legs.map(cleanLeg), value.exercise ?? "european", range]);
+    JSON.stringify([value.spot, value.rate, value.div_yield, value.legs.map(cleanLeg), value.exercise ?? "european", range, value.event ?? null]);
 
   const startPosition = untrack(() => clonePosition(settings.default_position));
   const startRange = untrack(() => settings.default_range_pct);
@@ -85,7 +86,27 @@
   });
 
   const label = $derived(dateLabel(day, lastDay));
-  const curveName = $derived(atExpiry ? "expiry" : day <= lastDay * 1e-6 ? "today" : `in ${daysText(day)}`);
+  // The earnings announcement, when it falls inside the chart's dates.
+  const eventDay = $derived(priced.event && priced.event.days < lastDay ? priced.event.days : null);
+  const eventCurve = $derived(eventDay === null || !full ? null : sliceAt(cube, eventDay, volScale));
+  const eventSummary = $derived(summary.event ?? null);
+  const eventLine = $derived.by(() => {
+    if (!priced.event) return "";
+    if (eventDay === null) return "Earnings after the first expiry: priced only into later legs";
+    const legs = eventSummary?.legs ?? [];
+    if (legs.length === 0) return "";
+    const main = legs.reduce((best, leg) => (leg.weight > best.weight ? leg : best));
+    return `Earnings in ${daysText(eventDay)}: volatility ${(main.vol_before * 100).toFixed(1)}% → ${(main.vol_after * 100).toFixed(1)}% after`;
+  });
+  const curveName = $derived(
+    eventDay !== null && day === eventDay
+      ? "after earnings"
+      : atExpiry
+        ? "expiry"
+        : day <= lastDay * 1e-6
+          ? "today"
+          : `in ${daysText(day)}`,
+  );
   const kickerText = $derived(kicker(priced, summary, position.label));
   const headlineText = $derived(
     headline(priced, summary, (at) => valueAt(cube.prices, expiryCurve, at), cube.prices[0], cube.prices[cube.nP - 1]),
@@ -264,6 +285,29 @@
     frame = requestAnimationFrame(step);
   }
 
+  /** Run the date from today to the moment after earnings, and hold there. */
+  function playCrush() {
+    if (!canSlide || eventDay === null) return;
+    stopPlaying();
+    playing = true;
+    const started = performance.now();
+    const run = 1600;
+    const target = eventDay;
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    const step = (now: number) => {
+      const t = (now - started) / run;
+      if (t >= 1) {
+        elapsed = target;
+        playing = false;
+        return;
+      }
+      // Stop just short of the announcement until the very end, so the drop lands as one step.
+      elapsed = Math.min(ease(t) * target, target - 1e-4);
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+  }
+
   function onDate(event: Event) {
     stopPlaying();
     elapsed = Number((event.currentTarget as HTMLInputElement).value);
@@ -360,6 +404,7 @@
         <dd class="num">{breakevenText}</dd>
       </div>
     </dl>
+    {#if eventLine}<p class="event-line"><span class="dot"></span>{eventLine}</p>{/if}
 
     <div class="body">
       <PayoffChart
@@ -378,6 +423,7 @@
         step={dragStep(position.spot)}
         onstrike={moveStrike}
         density={settings.flags.risk ? distribution : null}
+        {eventCurve}
       />
       <aside class="greeks" aria-label="Position Greeks">
         <div class="k">Position Greeks</div>
@@ -393,7 +439,10 @@
 
     <div class="controls">
       <label class="control">
-        <span class="top"><span class="k">Date</span><span class="num value">{label}</span></span>
+        <span class="top"><span class="k">Date</span><span class="num value">{curveName === "after earnings" ? "After earnings" : label}</span></span>
+        {#if eventDay !== null}
+          <span class="event-tick" style="left: {fill(eventDay, 0, lastDay)}" aria-hidden="true">earnings</span>
+        {/if}
         <input
           type="range"
           min="0"
@@ -417,6 +466,7 @@
           style="--fill: {fill(Math.log(volScale), volLow, volHigh)}"
           oninput={onVol}
         />
+        {#if priced.event}<span class="vol-note">Moves everyday volatility only; the earnings move stays fixed.</span>{/if}
       </label>
       <label class="control">
         <span class="top"><span class="k">Price range</span><span class="num value">&plusmn;{shownRange}%</span></span>
@@ -437,6 +487,9 @@
       <button type="button" class="btn" onclick={playing ? stopPlaying : play} disabled={!canSlide}>
         {playing ? "Stop" : "Play time decay"}
       </button>
+      {#if eventDay !== null}
+        <button type="button" class="btn crush" onclick={playCrush} disabled={!canSlide || playing}>Play the crush</button>
+      {/if}
       <button type="button" class="btn" onclick={resetView} disabled={elapsed === 0 && volScale === 1}>Reset view</button>
       <button type="button" class="btn solid share" onclick={copyLink}>{copied ? "Link copied" : "Copy link"}</button>
     </div>
@@ -506,6 +559,9 @@
 
   <h2 class="section">Position</h2>
   <LegsEditor bind:position {entryPrices} onreset={resetPosition} />
+  {#if settings.flags.event}
+    <EarningsControl bind:event={position.event} {apiBase} maxDays={lastDay} onenable={() => track("event")} />
+  {/if}
 
   <p class="caption">
     {position.exercise === "american"
@@ -519,6 +575,52 @@
 <style>
   .tool {
     padding-bottom: 64px;
+  }
+  .event-line {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 10px 0 0;
+    font: 500 12.5px/1.4 var(--mono);
+    color: var(--soft);
+  }
+  .event-line .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--series-2);
+    flex: none;
+  }
+  .control {
+    position: relative;
+  }
+  /* A label just under the date track, with a short line up to the announcement's position. */
+  .event-tick {
+    position: absolute;
+    bottom: 11px;
+    transform: translateX(-50%);
+    font: 500 9.5px/1 var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--series-2);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .event-tick::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -9px;
+    width: 1px;
+    height: 7px;
+    background: var(--series-2);
+  }
+  .vol-note {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .crush {
+    border-color: var(--series-2);
   }
   /* Wrappers that only listen for a panel's first use; they take no space of their own. */
   .use {

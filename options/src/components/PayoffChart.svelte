@@ -30,6 +30,8 @@
     onstrike?: (indices: number[], strike: number) => void;
     /** Risk-neutral density of the price at expiry, drawn as the "likely range" overlay. */
     density?: { prices: number[]; density: number[] } | null;
+    /** Profit the day after earnings, at the selected volatility; null without an announcement on the chart. */
+    eventCurve?: Float64Array | null;
   }
 
   let {
@@ -43,6 +45,7 @@
     label,
     curveName,
     atExpiry,
+    eventCurve = null,
     busy,
     stale,
     step,
@@ -112,7 +115,7 @@
   const yDomain = $derived.by(() => {
     let low = 0;
     let high = 0;
-    for (const series of [curve, expiry, today]) {
+    for (const series of eventCurve ? [curve, expiry, today, eventCurve] : [curve, expiry, today]) {
       for (let i = 0; i < series.length; i++) {
         if (series[i] < low) low = series[i];
         if (series[i] > high) high = series[i];
@@ -159,6 +162,7 @@
 
   const curvePath = $derived(linePath(curve));
   const expiryPath = $derived(linePath(expiry));
+  const eventPath = $derived(eventCurve ? linePath(eventCurve) : "");
   const areaPath = $derived(`${curvePath}L${px(sx(x1))} ${px(zeroY)}L${px(sx(x0))} ${px(zeroY)}Z`);
 
   const read = (series: Float64Array, price: number) => {
@@ -206,7 +210,8 @@
     if (hoverPrice == null) return null;
     const now = read(curve, hoverPrice);
     const end = read(expiry, hoverPrice);
-    return { price: hoverPrice, now, end, x: sx(hoverPrice), yNow: sy(now), yEnd: sy(end) };
+    const after = eventCurve ? read(eventCurve, hoverPrice) : null;
+    return { price: hoverPrice, now, end, after, x: sx(hoverPrice), yNow: sy(now), yEnd: sy(end) };
   });
 
   function priceAt(event: PointerEvent): number {
@@ -264,6 +269,12 @@
         At expiry
       </span>
     {/if}
+    {#if eventPath}
+      <span class="item">
+        <svg class="sample" width="22" height="8" aria-hidden="true"><line class="s-event" x1="0" y1="4" x2="22" y2="4" /></svg>
+        Day after earnings
+      </span>
+    {/if}
     {#if densityPath}
       <button type="button" class="item toggle" aria-pressed={showDensity} onclick={() => (showDensity = !showDensity)}>
         <svg class="sample" width="22" height="10" aria-hidden="true"><rect class="s-density" x="0" y="1" width="22" height="8" rx="2" /></svg>
@@ -317,6 +328,7 @@
       {/if}
 
       {#if !atExpiry}<path class="expiry" d={expiryPath} />{/if}
+      {#if eventPath}<path class="event" d={eventPath} />{/if}
       <path class="curve up" d={curvePath} clip-path="url(#{uid}-up)" />
       <path class="curve down" d={curvePath} clip-path="url(#{uid}-down)" />
 
@@ -359,6 +371,7 @@
       <div class="tip" style="left: {Math.min(W - 96, Math.max(96, hover.x))}px; top: {Math.min(hover.yNow, hover.yEnd)}px">
         <div>at {formatPrice(hover.price)}</div>
         <div><span class="who">{curveName}</span> {signedMoney(hover.now)}</div>
+        {#if hover.after != null}<div><span class="who">after earnings</span> {signedMoney(hover.after)}</div>{/if}
         {#if !atExpiry}<div><span class="who">expiry</span> {signedMoney(hover.end)}</div>{/if}
       </div>
     {/if}
@@ -444,6 +457,13 @@
     stroke: var(--bg);
     stroke-width: 4px;
     stroke-linejoin: round;
+  }
+  .event,
+  .s-event {
+    fill: none;
+    stroke: var(--series-2);
+    stroke-width: 1.5;
+    stroke-dasharray: 8 3 2 3;
   }
   .expiry,
   .s-expiry {

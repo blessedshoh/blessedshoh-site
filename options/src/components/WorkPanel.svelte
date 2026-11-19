@@ -115,6 +115,7 @@
       <p class="inputs num">
         S = {n(S, 2)} &nbsp;·&nbsp; r = {n(r)} &nbsp;·&nbsp; q = {n(q)} &nbsp;·&nbsp;
         {work.exercise === "american" ? "American exercise" : "European exercise"}
+        {#if work.event}&nbsp;·&nbsp; earnings in {work.event.days} days, ±{percent(work.event.move)} (m = {n(work.event.move)}){/if}
       </p>
 
       {#each work.legs as leg, i (i)}
@@ -136,6 +137,19 @@
                 <span class="what">Time to expiry</span>
                 <code>T = {leg.days} / 365 = {n(leg.years!)} years</code>
               </li>
+              {#if leg.base_vol != null && work.event}
+                <li>
+                  <span class="what">Earnings split</span>
+                  <code>σ²T = σ<sub>b</sub>²T + m² &nbsp;so&nbsp; σ<sub>b</sub> = √((σ²T − m²) / T)</code>
+                  <code
+                    >= √(({n(leg.vol!)}² × {n(leg.years!)} − {n(work.event.move)}²) / {n(leg.years!)}) = <b>{n(leg.base_vol)}</b></code
+                  >
+                  <span class="aside"
+                    >Today the option is priced at its full {percent(leg.vol!)}. After the announcement only the everyday
+                    {percent(leg.base_vol)} is left: that drop is the crush.</span
+                  >
+                </li>
+              {/if}
               <li>
                 <span class="what">d₁</span>
                 <code>[ln(S/K) + (r − q + σ²/2)·T] / (σ√T)</code>
