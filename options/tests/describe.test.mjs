@@ -13,7 +13,9 @@ test("every ready-made strategy is recognised by name, at any price level", () =
   for (const spot of [8, 42, 166, 1200]) {
     for (const template of TEMPLATES) {
       const position = { label: "", spot, rate: 0, div_yield: 0, legs: template.build(spot, 0.5, 30) };
-      assert.equal(strategyName(position), template.name, `${template.name} at ${spot}`);
+      // The earnings preset is a long straddle with an announcement attached.
+      const expected = template.id === "straddle-earnings" ? "Long straddle" : template.name;
+      assert.equal(strategyName(position), expected, `${template.name} at ${spot}`);
     }
   }
 });

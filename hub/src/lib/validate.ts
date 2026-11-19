@@ -121,6 +121,7 @@ export const OPTION_FLAGS = [
   { key: "sketch", label: "Payoff sketcher", help: "Draw a payoff and get the portfolio that builds it." },
   { key: "compare", label: "Compare", help: "Strategies side by side for a market outlook." },
   { key: "work", label: "Show your work", help: "Every headline number broken into steps, with values in each formula." },
+  { key: "event", label: "Earnings (IV crush)", help: "Earnings date and move, the day-after curve and the implied-move calculator." },
 ] as const;
 
 export interface Leg {

@@ -77,7 +77,10 @@
   function useTemplate(event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
     const template = TEMPLATES.find((item) => item.id === select.value);
-    if (template) position.legs = template.build(position.spot, usualVol, usualDays);
+    if (template) {
+      position.legs = template.build(position.spot, usualVol, usualDays);
+      position.event = template.event ? { ...template.event } : undefined;
+    }
     select.value = "";
   }
 </script>

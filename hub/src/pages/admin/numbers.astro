@@ -31,6 +31,7 @@ const EVENT_LABELS: Record<string, string> = {
   sketch: "Payoff sketcher used",
   compare: "Compare used",
   work: "Show your work opened",
+  event: "Earnings lab used",
 };
 const tools = [...new Set(stats.events.map((e) => e.tool))];
 const pageMax = Math.max(1, ...stats.pages.map((p) => p.n));

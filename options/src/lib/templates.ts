@@ -1,7 +1,7 @@
 // Ready-made strategies. Each builds its legs around the current price, so a
 // template always produces a sensible position whatever the underlying costs.
 
-import type { Leg } from "./types.ts";
+import type { EarningsEvent, Leg } from "./types.ts";
 
 /** Strike spacing that looks like a real option chain at this price level. */
 export function strikeStep(spot: number): number {
@@ -26,6 +26,8 @@ export interface Template {
   id: string;
   name: string;
   build: (spot: number, vol: number, days: number) => Leg[];
+  /** Set for presets that come with an earnings announcement. */
+  event?: EarningsEvent;
 }
 
 const at = (spot: number, offset: number) => snap(spot * (1 + offset), strikeStep(spot));
@@ -41,6 +43,13 @@ export const TEMPLATES: Template[] = [
   { id: "bear-put-spread", name: "Bear put spread", build: (s, v, d) => [put(1, at(s, -0.02), d, v), put(-1, at(s, -0.12), d, v)] },
   { id: "long-straddle", name: "Long straddle", build: (s, v, d) => [call(1, at(s, 0), d, v), put(1, at(s, 0), d, v)] },
   { id: "long-strangle", name: "Long strangle", build: (s, v, d) => [call(1, at(s, 0.08), d, v), put(1, at(s, -0.08), d, v)] },
+  {
+    // Its own volatility and expiry: 70% over 30 days holds a ±8% earnings move with room to spare.
+    id: "straddle-earnings",
+    name: "Straddle into earnings",
+    build: (s) => [call(1, at(s, 0), 30, 0.7), put(1, at(s, 0), 30, 0.7)],
+    event: { days: 5, move: 0.08 },
+  },
   {
     id: "iron-condor",
     name: "Iron condor",
