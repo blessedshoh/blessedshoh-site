@@ -51,9 +51,32 @@ const sections = [
       understates the risk of short options far from the money and of any position that loses in a gap.
     </p>
     <p class="fix">
-      Earnings are the clearest case: implied volatility is high before the announcement and collapses after it. Splitting
-      that out is planned as the IV-crush lab.
+      Earnings are the clearest case. The tool's earnings control adds one announcement with a jump of a chosen size; see
+      the next entry for what that model leaves out.
     </p>
+  </div>
+  <div class="limit" id="event">
+    <span class="tag mild">Medium effect</span>
+    <h3>The earnings model is a sketch of the real thing</h3>
+    <ul>
+      <li>
+        <strong>One fixed jump.</strong> The size of the move is an input, known in advance. In reality nobody knows how big
+        the reaction will be, and that uncertainty is itself priced.
+      </li>
+      <li><strong>Normal in the log price.</strong> Real earnings reactions are lumpier, often skewed one way.</li>
+      <li><strong>One announcement</strong> per position, on a known day.</li>
+      <li>
+        <strong>Only everyday volatility moves</strong> with the slider and the scenario shocks; the jump never changes.
+      </li>
+      <li>
+        <strong>American options</strong> use the binomial tree with the effective volatility rather than a true jump
+        inside the tree, which slightly misstates early exercise around the announcement.
+      </li>
+      <li>
+        <strong>The implied move</strong> assumes both expiries share one everyday volatility. A real term structure
+        rarely obliges exactly.
+      </li>
+    </ul>
   </div>
 
   <h2 id="probability">Chance of profit is not a forecast</h2>

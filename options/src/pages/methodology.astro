@@ -5,6 +5,7 @@ const sections = [
   { id: "pipeline", title: "From inputs to chart" },
   { id: "pricing", title: "Pricing one option" },
   { id: "american", title: "American exercise" },
+  { id: "earnings", title: "Earnings volatility" },
   { id: "position", title: "A whole position" },
   { id: "grid", title: "The profit grid" },
   { id: "probability", title: "Chance of profit" },
@@ -79,6 +80,43 @@ put  = K·e^(−rT)·N(−d₂) − S·e^(−qT)·N(−d₁)</pre>
   <p>
     A tree has no closed-form Greeks, so American Greeks are measured by nudging each input and repricing: the price by
     ±1%, the date by a quarter of a day, and volatility by ±0.5 points.
+  </p>
+
+  <h2 id="earnings">Earnings volatility</h2>
+  <p>
+    An option that expires after an earnings announcement carries two kinds of uncertainty: ordinary day-to-day moves,
+    and one large jump on the day of the announcement. Their variances add over the option's life, so the implied
+    volatility you enter is split into an everyday volatility σ<sub>b</sub> and a one-day jump whose log-price standard
+    deviation is m:
+  </p>
+  <pre>σ²·T = σ_b²·T + m²        so        σ_b = √((σ²·T − m²) / T)</pre>
+  <p>
+    While the announcement is still ahead, each option is priced with the jump's variance spread over the time left; from
+    the day of the announcement on, only the everyday volatility remains. That drop is the IV crush.
+  </p>
+  <pre>before:  σ_eff = √((σ_b²·τ + m²) / τ)          after:  σ_eff = σ_b</pre>
+  <p class="where">
+    τ is the time left to the option's expiry. The announcement happens before the open on its day, so on that day it has
+    already happened. At today's date σ_eff equals the volatility you entered, so today's prices and Greeks do not change.
+  </p>
+  <p>
+    Options that expire before the announcement keep their volatility. The volatility slider and the scenario shocks act
+    on σ<sub>b</sub> only; the jump is a fixed input. Greeks of options alive at the announcement are measured by nudging
+    and repricing, because the closed-form theta assumes a constant volatility. The profit grid gains two dates, a moment
+    before the announcement and the moment after, so the drop is drawn as a step. If σ²·T is not larger than m², the leg's
+    volatility is too low to contain the move, and the tool says so instead of pricing it.
+  </p>
+  <h3>What move is the market pricing?</h3>
+  <p>
+    Two expiries that both fall after the announcement share the same jump but spread it over different lengths of time,
+    so the nearer one has the higher volatility. Assuming one shared everyday volatility:
+  </p>
+  <pre>σ_b² = (σ₂²·T₂ − σ₁²·T₁) / (T₂ − T₁)
+m²   = σ₁²·T₁ − σ_b²·T₁
+average move, up or down = m·√(2/π)</pre>
+  <p>
+    The last line is the average size of a normally distributed jump: the figure traders quote as the move "the straddle
+    implies".
   </p>
 
   <h2 id="position">A whole position</h2>
