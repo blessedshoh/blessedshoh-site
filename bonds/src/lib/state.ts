@@ -1,7 +1,7 @@
 // The lab's state lives in the page address so any view can be shared as a link.
 // Format: #l=<base64url of a compact JSON object>. Nothing read from an address is trusted.
 
-import { AREAS, BASICS_MODELS, HEDGE_TENORS, type Area, type BasicsInput, type BondInput, type HedgeInput, type LabState } from "./types.ts";
+import { AREAS, BASICS_MODELS, HEDGE_TENORS, type Area, type BasicsInput, type BondInput, type CurveInput, type HedgeInput, type LabState } from "./types.ts";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const inside = (value: unknown, low: number, high: number): value is number =>
@@ -83,4 +83,12 @@ export function decodeLab(text: string): LabState | null {
   } catch {
     return null;
   }
+}
+
+/** The bond route's request: the curve, the bond's terms, and only the input its mode needs. */
+export function bondRequest(curve: CurveInput, bond: BondInput) {
+  const terms = { preset: bond.preset, coupon: bond.coupon, maturity: bond.maturity };
+  const extra =
+    bond.mode === "curve" ? { spreadBp: bond.spreadBp ?? 0 } : bond.mode === "yield" ? { yield: bond.yield ?? 0 } : { cleanPrice: bond.cleanPrice ?? 100 };
+  return { curve, bond: terms, mode: bond.mode, ...extra };
 }
