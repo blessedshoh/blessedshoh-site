@@ -4,7 +4,7 @@
   // from that grid. Nothing here does any option maths.
   import { onMount, untrack } from "svelte";
   import { fetchGrid } from "../lib/api.ts";
-  import { dateLabel, daysText, decaySentence, headline, kicker } from "../lib/describe.ts";
+  import { dateLabel, daysText, decaySentence, earningsLine, headline, kicker, volatilityText } from "../lib/describe.ts";
   import { money, price as formatPrice, signedMoney, signedNumber } from "../lib/format.ts";
   import { sliceAt, tableAt, toCube, valueAt } from "../lib/grid.ts";
   import { cleanLeg, clonePosition, decodeState, encodeState, isValidPosition } from "../lib/state.ts";
@@ -90,13 +90,13 @@
   const eventDay = $derived(priced.event && priced.event.days < lastDay ? priced.event.days : null);
   const eventCurve = $derived(eventDay === null || !full ? null : sliceAt(cube, eventDay, volScale));
   const eventSummary = $derived(summary.event ?? null);
-  const eventLine = $derived.by(() => {
-    if (!priced.event) return "";
-    if (eventDay === null) return "Earnings after the first expiry: priced only into later legs";
-    const legs = eventSummary?.legs ?? [];
-    if (legs.length === 0) return "";
-    const main = legs.reduce((best, leg) => (leg.weight > best.weight ? leg : best));
-    return `Earnings in ${daysText(eventDay)}: volatility ${(main.vol_before * 100).toFixed(1)}% → ${(main.vol_after * 100).toFixed(1)}% after`;
+  const eventLine = $derived(earningsLine(priced.event?.days ?? null, eventDay, eventSummary?.legs ?? []));
+  /** Each option leg's everyday volatility when earnings are set, for the slider readout. */
+  const everydayVols = $derived.by(() => {
+    if (!priced.event || !eventSummary) return null;
+    return priced.legs.flatMap((leg, index) =>
+      leg.kind === "stock" ? [] : [eventSummary.legs.find((row) => row.index === index)?.base_vol ?? leg.vol!],
+    );
   });
   const curveName = $derived(
     eventDay !== null && day === eventDay
@@ -114,9 +114,7 @@
   const dekText = $derived(decaySentence(greeks.theta, lastDay - day, hasOptions));
 
   const vols = $derived([...new Set(priced.legs.filter((leg) => leg.kind !== "stock").map((leg) => leg.vol!))]);
-  const volText = $derived(
-    vols.length === 1 ? `${(vols[0] * volScale * 100).toFixed(1)}%` : `×${volScale.toFixed(2)}`,
-  );
+  const volText = $derived(volatilityText(vols, volScale, everydayVols));
   const volLow = $derived(Math.log(cube.vols[0]));
   const volHigh = $derived(Math.log(cube.vols[cube.nV - 1]));
   const canSlide = $derived(full && hasExpiry);

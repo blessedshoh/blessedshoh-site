@@ -97,12 +97,15 @@ put  = K·e^(−rT)·N(−d₂) − S·e^(−qT)·N(−d₁)</pre>
   <pre>before:  σ_eff = √((σ_b²·τ + m²) / τ)          after:  σ_eff = σ_b</pre>
   <p class="where">
     τ is the time left to the option's expiry. The announcement happens before the open on its day, so on that day it has
-    already happened. At today's date σ_eff equals the volatility you entered, so today's prices and Greeks do not change.
+    already happened. At today's date σ_eff equals the volatility you entered, so today's prices, delta and gamma do not
+    change. Theta and vega do, correctly: theta counts only the everyday variance that decays while the jump is still
+    ahead, θ = θ<sub>BS</sub>(σ_eff) + ½·S²·Γ·(σ_eff² − σ_b²), and vega is per point of everyday volatility, scaled by
+    σ_b/σ_eff.
   </p>
   <p>
     Options that expire before the announcement keep their volatility. The volatility slider and the scenario shocks act
-    on σ<sub>b</sub> only; the jump is a fixed input. Greeks of options alive at the announcement are measured by nudging
-    and repricing, because the closed-form theta assumes a constant volatility. The profit grid gains two dates, a moment
+    on σ<sub>b</sub> only; the jump is a fixed input. For European options these Greeks are exact formulas; American ones
+    are measured by nudging the inputs and repricing the tree. The profit grid gains two dates, a moment
     before the announcement and the moment after, so the drop is drawn as a step. If σ²·T is not larger than m², the leg's
     volatility is too low to contain the move, and the tool says so instead of pricing it.
   </p>

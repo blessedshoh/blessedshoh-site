@@ -2,7 +2,7 @@
 // headline that states what has to happen for it to pay off, and date labels.
 
 import { money, strike as formatStrike } from "./format.ts";
-import type { Leg, Position, Summary } from "./types.ts";
+import type { EventLeg, Leg, Position, Summary } from "./types.ts";
 
 const isOption = (leg: Leg) => leg.kind !== "stock";
 const side = (quantity: number) => (quantity > 0 ? "Long" : "Short");
@@ -138,4 +138,27 @@ export function decaySentence(thetaPerDay: number, daysLeft: number, hasOptions:
   return thetaPerDay < 0
     ? `With ${daysText(daysLeft)} left, it loses about ${money(-thetaPerDay)} a day if the price stands still.`
     : `With ${daysText(daysLeft)} left, it earns about ${money(thetaPerDay)} a day if the price stands still.`;
+}
+
+/**
+ * The volatility slider's readout. With earnings set, the slider moves everyday
+ * volatility only, so that is what it shows.
+ */
+export function volatilityText(legVols: number[], volScale: number, everyday: number[] | null): string {
+  const unique = [...new Set(everyday ?? legVols)];
+  const text = unique.length === 1 ? `${(unique[0] * volScale * 100).toFixed(1)}%` : `×${volScale.toFixed(2)}`;
+  return everyday ? `${text} everyday` : text;
+}
+
+/**
+ * One line on what the earnings announcement does to this position.
+ * eventDays: the announcement's day, or null for none. eventDay: the same, but only
+ * when it falls inside the chart's dates. legs: the legs still alive at it.
+ */
+export function earningsLine(eventDays: number | null, eventDay: number | null, legs: EventLeg[]): string {
+  if (eventDays === null) return "";
+  if (legs.length === 0) return "Earnings come after every expiry, so they change nothing here";
+  if (eventDay === null) return "Earnings after the first expiry: priced only into later legs";
+  const main = legs.reduce((best, leg) => (leg.weight > best.weight ? leg : best));
+  return `Earnings in ${daysText(eventDay)}: volatility ${(main.vol_before * 100).toFixed(1)}% → ${(main.vol_after * 100).toFixed(1)}% after`;
 }

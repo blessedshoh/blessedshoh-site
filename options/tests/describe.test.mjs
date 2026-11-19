@@ -66,3 +66,32 @@ test("money uses a true minus sign and round axis steps", () => {
   assert.equal(axisMoney(1_250_000), "$1.25M");
   assert.deepEqual(niceTicks(-11000, 32000, 5), [-10000, 0, 10000, 20000, 30000]);
 });
+
+// --- earnings (final review fixes) ------------------------------------------------
+
+import { earningsLine, volatilityText } from "../src/lib/describe.ts";
+import { readFileSync } from "node:fs";
+
+const legsAt = (before, after, weight = 1) => ({ index: 0, base_vol: after, vol_before: before, vol_after: after, weight });
+
+test("the volatility readout shows everyday volatility when earnings are set", () => {
+  assert.equal(volatilityText([0.7], 1.2, null), "84.0%");
+  assert.equal(volatilityText([0.7, 0.6], 1.2, null), "×1.20");
+  assert.equal(volatilityText([0.7], 1.2, [0.642]), "77.0% everyday");
+  assert.equal(volatilityText([0.7, 0.6], 1.2, [0.642, 0.55]), "×1.20 everyday");
+});
+
+test("the earnings line says what the announcement does to this position", () => {
+  assert.equal(earningsLine(5, 5, [legsAt(0.7, 0.642)]), "Earnings in 5 days: volatility 70.0% → 64.2% after");
+  assert.equal(earningsLine(5, null, [legsAt(0.6, 0.55)]), "Earnings after the first expiry: priced only into later legs");
+  assert.equal(earningsLine(40, null, []), "Earnings come after every expiry, so they change nothing here");
+  assert.equal(earningsLine(null, null, []), "");
+  // With several legs, the line follows the one the position depends on most.
+  assert.equal(earningsLine(5, 5, [legsAt(0.9, 0.7, 1), legsAt(0.7, 0.642, 9)]), "Earnings in 5 days: volatility 70.0% → 64.2% after");
+});
+
+test("the methodology page does not claim today's Greeks are unchanged by earnings", () => {
+  const page = readFileSync(new URL("../src/pages/methodology.astro", import.meta.url), "utf8");
+  assert.equal(page.includes("today's prices and Greeks do not change"), false);
+  assert.ok(page.includes("per point of everyday volatility"));
+});

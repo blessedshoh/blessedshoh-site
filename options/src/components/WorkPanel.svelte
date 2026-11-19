@@ -220,7 +220,9 @@
                 <span class="aside"
                   >{leg.american_price != null
                     ? "Measured by nudging each input and repricing the tree."
-                    : "Δ = ±e^(−qT)·N(±d₁), Γ = e^(−qT)·φ(d₁)/(Sσ√T), vega = S·e^(−qT)·φ(d₁)·√T / 100, Θ per year / 365."}
+                    : leg.base_vol != null
+                      ? "Δ and Γ at the full volatility. Vega is per point of everyday volatility (× σ_b/σ), the part the slider and the scenarios move; theta counts only everyday decay, + ½S²Γ(σ² − σ_b²), so it leaves out the crush."
+                      : "Δ = ±e^(−qT)·N(±d₁), Γ = e^(−qT)·φ(d₁)/(Sσ√T), vega = S·e^(−qT)·φ(d₁)·√T / 100, Θ per year / 365."}
                   Times {sharesText(leg.size)} gives the leg's share of the position below.</span
                 >
               </li>
