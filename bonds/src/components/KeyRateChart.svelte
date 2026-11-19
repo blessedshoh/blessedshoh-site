@@ -14,6 +14,10 @@
   const COLORS = ["var(--accent)", "var(--series-2)"];
   const largest = $derived(Math.max(1e-12, ...rows.flatMap((r) => r.values.map(Math.abs))));
   const width = (v: number) => `${((Math.abs(v) / largest) * 50).toFixed(2)}%`;
+  // One precision for the whole chart, set by its largest bar: per-100-face DV01s need four
+  // decimals, a million-face position's DV01s none.
+  const digits = $derived(largest >= 10 ? 0 : 4);
+  const show = (v: number) => (Math.abs(v) < 0.5 * 10 ** -digits ? 0 : v).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 </script>
 
 <div class="krd">
@@ -31,7 +35,7 @@
           </span>
         {/each}
       </span>
-      <span class="num values">{row.values.map((v) => v.toLocaleString("en-US", { maximumFractionDigits: v !== 0 && Math.abs(v) < 1 ? 4 : 0 })).join(" → ")}</span>
+      <span class="num values">{row.values.map(show).join(" → ")}</span>
     </div>
   {/each}
 </div>

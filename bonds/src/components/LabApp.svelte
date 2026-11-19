@@ -127,7 +127,7 @@
     {#if area === "price"}
       <PricePanel {apiBase} {stored} {scheme} bind:bond />
     {:else if area === "hedge"}
-      <HedgePanel {apiBase} {stored} {scheme} {curve} bind:bond bind:hedge />
+      <HedgePanel {apiBase} {stored} {scheme} bind:bond bind:hedge />
     {:else if area === "basics"}
       <BasicsPanel {apiBase} bind:basics />
     {/if}

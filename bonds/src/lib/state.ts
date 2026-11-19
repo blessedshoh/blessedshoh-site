@@ -92,3 +92,14 @@ export function bondRequest(curve: CurveInput, bond: BondInput) {
     bond.mode === "curve" ? { spreadBp: bond.spreadBp ?? 0 } : bond.mode === "yield" ? { yield: bond.yield ?? 0 } : { cleanPrice: bond.cleanPrice ?? 100 };
   return { curve, bond: terms, mode: bond.mode, ...extra };
 }
+
+/** The hedge route's request: the pricer's bond terms as the position, plus the hedge settings. */
+export function hedgeRequest(curve: CurveInput, bond: BondInput, hedge: HedgeInput) {
+  return {
+    curve,
+    position: { preset: bond.preset, coupon: bond.coupon, maturity: bond.maturity },
+    faceAmount: hedge.faceAmount,
+    mode: hedge.mode,
+    hedgeTenors: [...hedge.tenors],
+  };
+}
