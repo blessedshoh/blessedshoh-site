@@ -71,3 +71,20 @@ test("a model and its inputs survive the round trip through a link", () => {
   const state = { area: "basics", day: null, basics: { model: "rate-tree", inputs: { ...DEFAULTS["rate-tree"].inputs } } };
   assert.deepEqual(decodeLab(encodeLab(state)), state);
 });
+
+test("workbook fields are read out of a result by their path", async () => {
+  const { readPath } = await import("../src/lib/basics.ts");
+  const result = { price: 14.86, path: [{ low: 60.7 }, { low: 61.5 }], spots: [5, 5.25, 5.81] };
+  assert.equal(readPath(result, "price"), 14.86);
+  assert.equal(readPath(result, "path[1].low"), 61.5);
+  assert.equal(readPath(result, "spots[2]"), 5.81);
+  assert.equal(readPath(result, "path[9].low"), undefined);
+});
+
+test("the final exam's callable bond is offered as a preset with its own answer", () => {
+  const [exam] = DEFAULTS["rate-tree"].presets;
+  assert.deepEqual(exam.inputs.lowestRates, [4.858, 4.429295078145, 3.702950670663, 3.191253030166, 2.753050362923]);
+  assert.deepEqual([exam.inputs.face, exam.inputs.coupon, exam.inputs.years, exam.inputs.strike, exam.inputs.firstExerciseYear, exam.inputs.volatility], [1000, 5, 5, 985, 3, 14.16]);
+  assert.deepEqual(exam.workbook, [{ field: "value", value: 982.2212369016, cell: "FI_final_ShohruhM.xlsx, Q1!C21" }]);
+  assert.equal(basicsProblem("rate-tree", exam.inputs), "");
+});

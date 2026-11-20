@@ -120,3 +120,13 @@ export function basicsRequest(model: BasicsModel, inputs: Inputs): { route: "bas
   }
   return { route: "basics", body: { model, ...inputs } };
 }
+
+/** A field of a route's result by its workbook path, e.g. "path[0].low" or "spots[2]". */
+export function readPath(result: unknown, path: string): number | undefined {
+  let at: unknown = result;
+  for (const part of path.match(/[^.[\]]+/g) ?? []) {
+    if (at === null || typeof at !== "object") return undefined;
+    at = (at as Record<string, unknown>)[part];
+  }
+  return typeof at === "number" ? at : undefined;
+}

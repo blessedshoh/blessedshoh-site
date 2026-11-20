@@ -52,11 +52,18 @@
   "bootstrap": {
     "inputs": { "parYields": [5, 5.25, 5.8, 6, 6.2, 6.5], "frequency": 2, "billPeriods": 2 },
     "workbook": [
-      { "field": "spots[2]", "value": 5.8186247396, "cell": "FixedIncomeDeriv_ All_Models.xlsm, Bootstrapping!E12" },
+      {
+        "field": "spots[2]",
+        "value": 5.8186247396,
+        "cell": "FixedIncomeDeriv_ All_Models.xlsm, Bootstrapping!E12",
+        "tolerance": 0.0001,
+        "note": "The workbook solved each spot with Goal Seek, which stops within about 0.0001 percentage points of the exact answer; this model solves exactly."
+      },
       {
         "field": "spots[5]",
         "value": 6.5542833542,
         "cell": "FixedIncomeDeriv_ All_Models.xlsm, Bootstrapping!E15 (corrected)",
+        "tolerance": 0.0001,
         "note": "The workbook shows 6.7017% here. Cell M37 reads =E22/2, an empty cell, instead of =E13/2, which leaves the fourth coupon undiscounted. With that one reference fixed the spot is 6.5543%, which is what this model gives."
       }
     ]
@@ -74,7 +81,25 @@
       "strike": 100,
       "firstExerciseYear": 1
     },
-    "workbook": [{ "field": "value", "value": 99.8150009406, "cell": "FixedIncomeDeriv_ All_Models.xlsm, Binomial Tree!H18" }]
+    "workbook": [{ "field": "value", "value": 99.8150009406, "cell": "FixedIncomeDeriv_ All_Models.xlsm, Binomial Tree!H18" }],
+    "presets": [
+      {
+        "label": "Final exam, Q1: NVIDIA callable",
+        "inputs": {
+          "source": "tree",
+          "volatility": 14.16,
+          "lowestRates": [4.858, 4.429295078145, 3.702950670663, 3.191253030166, 2.753050362923],
+          "parYields": [3.5, 4.2, 4.7],
+          "face": 1000,
+          "coupon": 5,
+          "years": 5,
+          "option": "call",
+          "strike": 985,
+          "firstExerciseYear": 3
+        },
+        "workbook": [{ "field": "value", "value": 982.2212369016, "cell": "FI_final_ShohruhM.xlsx, Q1!C21" }]
+      }
+    ]
   },
   "convertible": {
     "inputs": {
