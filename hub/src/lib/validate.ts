@@ -140,8 +140,18 @@ export interface ExampleInput {
 
 export const MAX_LEGS = 6;
 
-export function flagsFromForm(form: FormData): Record<string, boolean> {
-  return Object.fromEntries(OPTION_FLAGS.map((flag) => [flag.key, form.get(`flag_${flag.key}`) !== null]));
+// --- fixed income lab settings --------------------------------------------------
+
+export const BOND_FLAGS = [
+  { key: "curve", label: "Today's curve", help: "The Treasury par curve for any day since 1990, fitted three ways." },
+  { key: "price", label: "Price a bond", help: "Price, yield, spread, durations, convexity and key-rate durations." },
+  { key: "hedge", label: "Hedge", help: "DV01 and key-rate hedges with on-the-run Treasuries." },
+  { key: "basics", label: "Basics", help: "The coursework models: pricing, duration, bootstrapping and the two trees." },
+] as const;
+
+/** One tool's switches from its form: every flag in the list, true where its box was ticked. */
+export function flagsFromForm(form: FormData, flags: readonly { key: string }[]): Record<string, boolean> {
+  return Object.fromEntries(flags.map((flag) => [flag.key, form.get(`flag_${flag.key}`) !== null]));
 }
 
 export function bannerFromForm(form: FormData): string | null {

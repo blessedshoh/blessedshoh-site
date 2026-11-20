@@ -9,7 +9,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "deploy": "astro build && node -e \"require('fs').rmSync('dist/server/.dev.vars',{force:true})\" && wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply blessedshoh-hub --local",
-    "db:migrate": "wrangler d1 migrations apply blessedshoh-hub --remote"
+    "db:migrate": "wrangler d1 migrations apply blessedshoh-hub --remote",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.4.4",

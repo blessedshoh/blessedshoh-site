@@ -1,0 +1,140 @@
+---
+import Doc from "../layouts/Doc.astro";
+
+const sections = [
+  { id: "curve", title: "The curve is a fit, not trades" },
+  { id: "credit", title: "Corporates have no credit curve" },
+  { id: "local", title: "Risk numbers are local" },
+  { id: "hedges", title: "Idealised hedges" },
+  { id: "tree", title: "The rate tree is simple" },
+  { id: "convertible", title: "The convertible has no credit risk" },
+  { id: "textbook", title: "The coursework models are textbook" },
+  { id: "timing", title: "Data timing" },
+];
+---
+
+<Doc
+  title="Where the model is wrong"
+  kicker="Fixed income lab · limits"
+  description="The assumptions behind the fixed income lab, where real bond markets break them, and how much it matters."
+  lede="A model is a set of assumptions. Knowing where they fail matters as much as the formulas, so here they are, roughly in order of how much they matter for the numbers on screen."
+  sections={sections}
+>
+  <h2 id="curve">The curve is a fit, not trades</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>Par yields read off the Treasury's own curve</h3>
+    <p>
+      The published yields are not prices of real bonds. They are points on a curve the Treasury fits to recently
+      auctioned securities, quoted at fixed maturities no bond actually has. The lab treats each one as a par bond issued
+      today, so it prices a hypothetical bond exactly and a real one only approximately. A real Treasury with an odd
+      coupon or maturity trades away from this curve by a few basis points, more in stressed markets.
+    </p>
+    <p class="fix">The fix: build the curve from traded prices of individual Treasuries (CUSIP-level data).</p>
+  </div>
+  <div class="limit">
+    <span class="tag mild">Moderate effect</span>
+    <h3>No on-the-run premium, no liquidity effects</h3>
+    <p>
+      The newest issue at each maturity usually trades richer than older ones, because it is the easiest to trade and to
+      borrow in repo. The fitted curve smooths that over, and the lab does not model it.
+    </p>
+  </div>
+  <div class="limit">
+    <span class="tag mild">Small effect</span>
+    <h3>No extrapolation past 30 years</h3>
+    <p>
+      A bond maturing after the curve's last published maturity is refused instead of priced off an extrapolated rate.
+      On days without a 30-year yield (2002 to early 2006), that limit is 20 years.
+    </p>
+  </div>
+
+  <h2 id="credit">Corporates have no credit curve</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>Treasury curve plus one flat spread</h3>
+    <p>
+      A corporate bond is priced as the Treasury curve plus one spread added to every maturity. Real credit spreads have
+      a term structure of their own, depend on the issuer's default risk and expected recovery, and widen sharply in a
+      crisis. The Z-spread the lab reports is a summary number, not a credit model: it does not tell you the chance of
+      default.
+    </p>
+    <p class="fix">The fix: a credit curve per issuer or rating, from CDS or a set of the issuer's bonds.</p>
+  </div>
+
+  <h2 id="local">Risk numbers are local</h2>
+  <div class="limit">
+    <span class="tag mild">Moderate effect</span>
+    <h3>Durations and key-rate DV01s hold for small moves</h3>
+    <p>
+      DV01, duration and key-rate durations are first derivatives: they describe a 1 bp move. For moves of 50 or 100 bp,
+      convexity matters, and the duration estimate misses. The Basics area's tangent model shows by how much: −32.6% for
+      a 400 bp move on a 50-year bond.
+    </p>
+    <p>
+      Key-rate durations also depend on the interpolation scheme. With a non-local scheme such as a cubic spline,
+      moving one pillar moves the curve elsewhere too, so the same bond can show a different key-rate profile under a
+      different scheme.
+    </p>
+  </div>
+
+  <h2 id="hedges">Idealised hedges</h2>
+  <div class="limit">
+    <span class="tag mild">Moderate effect</span>
+    <h3>Par bonds issued today, no costs</h3>
+    <p>
+      The hedge instruments are Treasuries issued at par on the curve date, maturing exactly at each pillar. Real hedges
+      use the bonds that exist, often futures, with bid-ask spreads, repo financing and margin. The sizes are exact
+      fractions of a dollar, while trades come in round lots.
+    </p>
+    <p>
+      A hedge holds only for the curve it was computed on. As rates move and time passes the exposures drift, and the
+      hedge has to be rebalanced.
+    </p>
+  </div>
+
+  <h2 id="tree">The rate tree is simple</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>One volatility, annual steps, recombining rates</h3>
+    <p>
+      The Kalotay-Williams-Fabozzi tree uses a single volatility for every year and every rate level, with one step per
+      year. Real rate volatility differs by maturity and rate level, and calls are exercised on specific dates with
+      notice periods, not once a year. The callable bond's value is sensitive to the volatility you choose, and the lab
+      takes it as an input, not something fitted to swaption prices.
+    </p>
+    <p class="fix">The fix: calibrate the volatility to market option prices, use finer steps, or use a model with mean reversion such as Hull-White.</p>
+  </div>
+
+  <h2 id="convertible">The convertible has no credit risk</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>Everything discounted at the risk-free rate</h3>
+    <p>
+      The coursework model discounts the whole convertible at the risk-free rate, as if the issuer could not default.
+      Convertible issuers are usually riskier companies. Desk models split the value into an equity part discounted at
+      the risk-free rate and a debt part discounted at a credit-adjusted rate (Tsiveriotis and Fernandes, 1998). The
+      model also has no issuer call, no put, no dilution, and a constant stock volatility.
+    </p>
+  </div>
+
+  <h2 id="textbook">The coursework models are textbook</h2>
+  <div class="limit">
+    <span class="tag mild">Small effect</span>
+    <h3>Whole periods and 30/360</h3>
+    <p>
+      The Basics models price on coupon dates only (whole periods, no accrued interest) with 30/360 day counts, as the
+      coursework did. They teach the shape of each effect. For a real bond on a real settlement date, use Price a bond.
+    </p>
+  </div>
+
+  <h2 id="timing">Data timing</h2>
+  <div class="limit">
+    <span class="tag mild">Small effect</span>
+    <h3>One curve a day, at the close</h3>
+    <p>
+      The Treasury publishes one curve per business day, late in the afternoon New York time. Nothing in the lab moves
+      during the day. A price from it is an end-of-day estimate, not a quote you could trade on.
+    </p>
+  </div>
+</Doc>

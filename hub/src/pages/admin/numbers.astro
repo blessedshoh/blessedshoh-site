@@ -1,4 +1,5 @@
 ---
+import { eventLabel, toolName } from "../../lib/labels.ts";
 import { env } from "cloudflare:workers";
 import Admin from "../../layouts/Admin.astro";
 import { numbers } from "../../lib/admin.ts";
@@ -20,19 +21,7 @@ const y = (n: number) => PAD_T + (1 - n / peak) * (H - PAD_T - PAD_B);
 const tickEvery = days <= 7 ? 1 : days <= 30 ? 5 : 15;
 const label = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-const EVENT_LABELS: Record<string, string> = {
-  view: "Page views",
-  priced: "Positions priced",
-  shared: "Links copied",
-  link_opened: "Shared links opened",
-  risk: "Risk view used",
-  tree: "Binomial tree used",
-  chain: "Chain or arbitrage used",
-  sketch: "Payoff sketcher used",
-  compare: "Compare used",
-  work: "Show your work opened",
-  event: "Earnings lab used",
-};
+// Event and tool names come from ../../lib/labels.ts, read per tool.
 const tools = [...new Set(stats.events.map((e) => e.tool))];
 const pageMax = Math.max(1, ...stats.pages.map((p) => p.n));
 const refMax = Math.max(1, ...stats.referrers.map((r) => r.n));
@@ -100,10 +89,10 @@ const refMax = Math.max(1, ...stats.referrers.map((r) => r.n));
     <h2>Tool usage</h2>
     {tools.length === 0 ? <p class="empty">No tool activity yet.</p> : tools.map((tool) => (
       <table>
-        <thead><tr><th>{tool}</th><th class="r">{days} days</th></tr></thead>
+        <thead><tr><th>{toolName(tool)}</th><th class="r">{days} days</th></tr></thead>
         <tbody>
           {stats.events.filter((e) => e.tool === tool).map((e) => (
-            <tr><td>{EVENT_LABELS[e.event] ?? e.event}</td><td class="r num">{e.n.toLocaleString("en-US")}</td></tr>
+            <tr><td>{eventLabel(tool, e.event)}</td><td class="r num">{e.n.toLocaleString("en-US")}</td></tr>
           ))}
         </tbody>
       </table>

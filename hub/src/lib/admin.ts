@@ -105,13 +105,31 @@ export async function optionsSettings(db: D1Database): Promise<OptionsHubSetting
   return { flags: stored?.flags ?? {}, banner: stored?.banner ?? null, example: stored?.example ?? null };
 }
 
-function writeSettings(db: D1Database, value: OptionsHubSettings) {
+function writeSettings(db: D1Database, value: OptionsHubSettings | BondsHubSettings, tool: "options" | "bonds" = "options") {
   return db
     .prepare(
-      `INSERT INTO tool_settings (tool, json) VALUES ('options', ?)
+      `INSERT INTO tool_settings (tool, json) VALUES (?, ?)
        ON CONFLICT (tool) DO UPDATE SET json = excluded.json, updated_at = datetime('now')`,
     )
-    .bind(JSON.stringify(value));
+    .bind(tool, JSON.stringify(value));
+}
+
+export interface BondsHubSettings {
+  flags: Record<string, boolean>;
+  banner: string | null;
+}
+
+export async function bondsSettings(db: D1Database): Promise<BondsHubSettings> {
+  const stored = await toolSettings<BondsHubSettings>(db, "bonds");
+  return { flags: stored?.flags ?? {}, banner: stored?.banner ?? null };
+}
+
+export async function saveBondsSwitches(db: D1Database, who: string, flags: Record<string, boolean>, banner: string | null) {
+  const on = Object.keys(flags).filter((key) => flags[key]);
+  await db.batch([
+    writeSettings(db, { flags, banner }, "bonds"),
+    logStatement(db, who, "fixed income lab", `Areas on: ${on.join(", ") || "none"}; notice ${banner ? "shown" : "off"}`),
+  ]);
 }
 
 export async function saveOptionsSwitches(db: D1Database, who: string, flags: Record<string, boolean>, banner: string | null) {

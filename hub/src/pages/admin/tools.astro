@@ -1,9 +1,10 @@
 ---
 import { env } from "cloudflare:workers";
 import builtIn from "../../../../options/src/data/settings.json";
+import bondsBuiltIn from "../../../../bonds/src/data/settings.json";
 import Admin from "../../layouts/Admin.astro";
-import { optionsSettings, saveOptionsExample, saveOptionsSwitches } from "../../lib/admin.ts";
-import { Invalid, MAX_LEGS, OPTION_FLAGS, bannerFromForm, exampleFromForm, flagsFromForm, type ExampleInput } from "../../lib/validate.ts";
+import { bondsSettings, optionsSettings, saveBondsSwitches, saveOptionsExample, saveOptionsSwitches } from "../../lib/admin.ts";
+import { BOND_FLAGS, Invalid, MAX_LEGS, OPTION_FLAGS, bannerFromForm, exampleFromForm, flagsFromForm, type ExampleInput } from "../../lib/validate.ts";
 
 const who = Astro.locals.admin ?? "";
 let problem: string | null = null;
@@ -14,8 +15,12 @@ if (Astro.request.method === "POST") {
   const action = String(form.get("action"));
   try {
     if (action === "switches") {
-      await saveOptionsSwitches(env.DB, who, flagsFromForm(form), bannerFromForm(form));
+      await saveOptionsSwitches(env.DB, who, flagsFromForm(form, OPTION_FLAGS), bannerFromForm(form));
       return Astro.redirect("/admin/tools?done=switches", 303);
+    }
+    if (action === "bonds") {
+      await saveBondsSwitches(env.DB, who, flagsFromForm(form, BOND_FLAGS), bannerFromForm(form));
+      return Astro.redirect("/admin/tools?done=bonds#bonds", 303);
     }
     if (action === "reset") {
       await saveOptionsExample(env.DB, who, env.API_BASE, null);
@@ -37,10 +42,14 @@ const NOTICES: Record<string, string> = {
   switches: "Saved. The options tool follows on its next page load.",
   example: "Default example priced and stored. Visitors see it at once, even while the API sleeps.",
   reset: "Back to the built-in example.",
+  bonds: "Saved. The fixed income lab follows on its next page load.",
 };
 const notice = NOTICES[Astro.url.searchParams.get("done") ?? ""] ?? null;
 
 const settings = await optionsSettings(env.DB);
+const bonds = await bondsSettings(env.DB);
+const bondFlags = { ...bondsBuiltIn.flags, ...bonds.flags } as Record<string, boolean>;
+const typedFor = (tool: "options" | "bonds") => (typed && (String(typed.get("action")) === "bonds") === (tool === "bonds") ? typed : null);
 const flags = { ...builtIn.flags, ...settings.flags } as Record<string, boolean>;
 const example: ExampleInput = settings.example ?? {
   position: { ...builtIn.default_position, exercise: builtIn.default_position.exercise === "american" ? "american" : "european" } as ExampleInput["position"],
@@ -58,14 +67,14 @@ const money = (x: number) => `${x < 0 ? "−" : ""}$${Math.abs(x).toLocaleString
 ---
 
 <Admin title="Tools" notice={notice} problem={problem}>
-  <p class="help intro">Settings for the options tool at <a href="https://options.blessedshoh.dev" target="_blank" rel="noopener">options.blessedshoh.dev</a>. It reads them on every page load.</p>
+  <p class="help intro">Settings for the tools. Each reads them on every page load. Options tool: <a href="https://options.blessedshoh.dev" target="_blank" rel="noopener">options.blessedshoh.dev</a>.</p>
 
   <form method="post" class="panel">
     <h2>Features</h2>
     <div class="flags">
       {OPTION_FLAGS.map((f) => (
         <label class="check">
-          <input type="checkbox" name={`flag_${f.key}`} checked={typed ? typed.get(`flag_${f.key}`) !== null : flags[f.key] !== false} />
+          <input type="checkbox" name={`flag_${f.key}`} checked={typedFor("options") ? typedFor("options")!.get(`flag_${f.key}`) !== null : flags[f.key] !== false} />
           <span><b>{f.label}</b><br /><span class="help">{f.help}</span></span>
         </label>
       ))}
@@ -76,6 +85,25 @@ const money = (x: number) => `${x < 0 ? "−" : ""}$${Math.abs(x).toLocaleString
       <span class="help">A one-line message above the tool, for example planned maintenance. Plain text, up to 200 characters.</span>
     </label>
     <div class="btns"><button class="btn solid" name="action" value="switches">Save features</button></div>
+  </form>
+
+  <form method="post" class="panel" id="bonds">
+    <h2>Fixed income lab</h2>
+    <p class="help">Areas of <a href="https://bonds.blessedshoh.dev" target="_blank" rel="noopener">bonds.blessedshoh.dev</a>. A switched-off area disappears from its tabs; shared links to it open the curve instead.</p>
+    <div class="flags">
+      {BOND_FLAGS.map((f) => (
+        <label class="check">
+          <input type="checkbox" name={`flag_${f.key}`} checked={typedFor("bonds") ? typedFor("bonds")!.get(`flag_${f.key}`) !== null : bondFlags[f.key] !== false} />
+          <span><b>{f.label}</b><br /><span class="help">{f.help}</span></span>
+        </label>
+      ))}
+    </div>
+    <label class="row notice">
+      <span>Notice banner</span>
+      <input class="field" name="banner" maxlength="200" value={typedFor("bonds") ? String(typedFor("bonds")!.get("banner") ?? "") : (bonds.banner ?? "")} placeholder="Empty means no banner" />
+      <span class="help">A one-line message above the lab. Plain text, up to 200 characters.</span>
+    </label>
+    <div class="btns"><button class="btn solid" name="action" value="bonds">Save fixed income lab</button></div>
   </form>
 
   <form method="post" class="panel" data-pricing>

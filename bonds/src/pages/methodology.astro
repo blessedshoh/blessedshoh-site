@@ -1,0 +1,216 @@
+---
+import Doc from "../layouts/Doc.astro";
+import coursework from "../data/coursework.json";
+
+const files = coursework as { file: string; title: string; note: string }[];
+const sections = [
+  { id: "data", title: "The data" },
+  { id: "curve", title: "Building the curve" },
+  { id: "pricing", title: "Pricing a bond" },
+  { id: "key-rates", title: "Key-rate durations" },
+  { id: "hedge", title: "Hedging" },
+  { id: "tree", title: "The rate tree" },
+  { id: "convertible", title: "The convertible tree" },
+  { id: "coursework", title: "The coursework models" },
+  ...(files.length > 0 ? [{ id: "downloads", title: "The coursework itself" }] : []),
+  { id: "engine", title: "The engine" },
+];
+---
+
+<Doc
+  title="How it works"
+  kicker="Fixed income lab · methodology"
+  description="How the fixed income lab builds the Treasury curve, prices and hedges bonds, and values callable and convertible bonds, with every formula it uses."
+  lede="Every number in the lab comes from bondlab, a Python fixed income library, through the same API as the options tool. This page sets out what it computes and how, in the order the lab uses it."
+  sections={sections}
+>
+  <h2 id="data">The data</h2>
+  <p>
+    The curve is the U.S. Treasury's <strong>Daily Treasury Par Yield Curve</strong>: for each business day, par yields at
+    fixed maturities from one month to 30 years. The Treasury reads them off its own fitted curve of recently auctioned
+    securities. Every day since 2 January 1990 is stored, and a scheduled job loads each new day twice an evening, so
+    the lab never waits on treasury.gov.
+  </p>
+  <p>
+    The set of published maturities has changed: no one-month bill before 2001, no 30-year bond from 2002 to early 2006,
+    and new two-month, four-month and six-week bills since 2018. The lab builds each day from the maturities that day
+    actually has and says which are missing. Choose a weekend or holiday and you get the last business day before it.
+  </p>
+
+  <h2 id="curve">Building the curve</h2>
+  <p>Each published yield becomes an instrument the curve must price exactly:</p>
+  <ul>
+    <li>
+      <strong>Six months or less: bills.</strong> One payment at maturity, the published yield read as a simple ACT/365
+      rate, which is how the Treasury quotes bills of up to half a year.
+    </li>
+    <li>
+      <strong>Longer: par bonds.</strong> A semiannual Treasury issued on the curve date with a coupon equal to its
+      published yield, so it is worth exactly 100.
+    </li>
+  </ul>
+  <p>
+    The curve is <strong>bootstrapped</strong>: solved one maturity at a time, shortest first, each discount factor chosen
+    so its instrument reprices to the quote with the earlier ones already fixed. Between pillars the curve needs an
+    interpolation rule, and the lab offers three:
+  </p>
+  <table>
+    <thead><tr><th>Scheme</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>Monotone convex</td><td>Hagan and West's method, the one the Treasury itself uses: forwards stay positive and continuous, with no overshoot between pillars.</td></tr>
+      <tr><td>Linear on zero rates</td><td>Straight lines between zero rates. Simple and local, but the forward curve jumps at every pillar.</td></tr>
+      <tr><td>Natural cubic spline</td><td>A smooth curve through the zero rates. The forwards look smooth too, but they can overshoot and wiggle between pillars.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The chart also shows a <strong>Nelson-Siegel</strong> fit to the same day's continuously compounded zero rates. It is
+    a four-parameter curve, a level, a slope and a hump that decays at rate λ:
+  </p>
+  <pre>z(t) = β₀ + β₁·(1 − e^(−λt))/(λt) + β₂·[(1 − e^(−λt))/(λt) − e^(−λt)]</pre>
+  <p class="where">
+    All four parameters, λ included, are fitted by Levenberg-Marquardt least squares. Unlike the bootstrapped curve it
+    does not pass through every point. The gap shows how much of the day's curve a smooth level-slope-curvature shape
+    explains.
+  </p>
+
+  <h2 id="pricing">Pricing a bond</h2>
+  <p>Two bonds are offered, and their conventions are stated, not hidden:</p>
+  <table>
+    <thead><tr><th></th><th>US Treasury</th><th>USD corporate</th></tr></thead>
+    <tbody>
+      <tr><td>Coupons</td><td>Semiannual</td><td>Semiannual</td></tr>
+      <tr><td>Accrual day count</td><td>ACT/ACT (ICMA)</td><td>30/360</td></tr>
+      <tr><td>Settlement</td><td>T+1</td><td>T+2</td></tr>
+      <tr><td>Calendar</td><td colspan="2">SIFMA US bond market (Good Friday included)</td></tr>
+    </tbody>
+  </table>
+  <p>The price can come from any one of three inputs, and the other two are solved from it:</p>
+  <ul>
+    <li><strong>Off the curve.</strong> Each cash flow is discounted at the curve's semiannual zero rate plus a spread.</li>
+    <li><strong>From a yield.</strong> The street-convention yield to maturity, compounded semiannually.</li>
+    <li><strong>From a price.</strong> The yield and the Z-spread are solved to match the clean price you give.</li>
+  </ul>
+  <pre>dirty price = Σ CFᵢ · DF(tᵢ)        DF(t) = (1 + (z(t) + s)/2)^(−2t)
+clean price = dirty price − accrued interest</pre>
+  <p>
+    Durations come from the yield: Macaulay is the present-value-weighted average time of the payments, and modified is
+    Macaulay / (1 + y/2). Convexity measures how much the price curves against the yield. DV01 is the price change for a
+    1 bp fall in yield, per 100 face. "Show your work" lists every cash flow with its discount factor and present value.
+  </p>
+
+  <h2 id="key-rates">Key-rate durations</h2>
+  <p>
+    A parallel DV01 treats the curve as one number. Key-rate durations split it by maturity. Each pillar's zero rate is
+    moved up and then down by 1 bp on its own and the curve is rebuilt. The bond's change in value is the central
+    difference:
+  </p>
+  <pre>KRDₖ = −[P(zₖ + 1bp) − P(zₖ − 1bp)] / 2</pre>
+  <p class="where">
+    The curve is re-fitted after each shock, so the shape of the bump between pillars is whatever the chosen
+    interpolation implies, rather than Ho's imposed triangle. The two agree for a local scheme. The key-rate durations
+    add up to about the parallel DV01, but not exactly, because several single-pillar shocks are not the same as one
+    parallel shift.
+  </p>
+
+  <h2 id="hedge">Hedging</h2>
+  <p>
+    The position is the bond from "Price a bond". The hedges are Treasuries issued on the curve date at par, one per
+    chosen maturity, priced off the same curve.
+  </p>
+  <p><strong>DV01 hedge:</strong> one bond, sized so a parallel 1 bp move leaves the total unchanged.</p>
+  <pre>n = −DV01(position) / DV01(hedge)</pre>
+  <p>
+    <strong>Key-rate hedge:</strong> one hedge per chosen pillar. With A[t][h] the key-rate DV01 of hedge h at pillar t,
+    and b[t] the position's, solve
+  </p>
+  <pre>A · n = −b</pre>
+  <p>
+    The hedged position then has zero DV01 at every chosen pillar. Unchosen pillars keep whatever exposure is left, and
+    the lab shows it bar by bar. A set of hedges that cannot be solved, such as two hedges with the same exposure, is
+    refused with the reason.
+  </p>
+
+  <h2 id="tree">The rate tree</h2>
+  <p>
+    Callable and putable bonds are valued on a <strong>Kalotay-Williams-Fabozzi</strong> binomial tree of one-year rates.
+    At each year the rates are spaced by the volatility:
+  </p>
+  <pre>r(i, j) = r(i, 0) · e^(2σj),   j = 0 … i</pre>
+  <p>
+    The lowest rate of each year is either typed in, as in the workbook, or calibrated so that the tree prices each par
+    bond at exactly 100. The bond is then valued backward from maturity:
+  </p>
+  <pre>V(i, j) = ½ · [(V(i+1, j+1) + C) + (V(i+1, j) + C)] / (1 + r(i, j))
+callable: V = min(V, call price)     putable: V = max(V, put price)</pre>
+  <p class="where">
+    The exercise check starts from the first exercise year. The option's value is the straight bond's value minus the
+    callable bond's. On the workbook's inputs the tree gives 99.8150, the workbook's own answer; on the final exam's
+    NVIDIA callable it gives 982.2212.
+  </p>
+
+  <h2 id="convertible">The convertible tree</h2>
+  <p>
+    A convertible lets its holder swap the bond for shares. The stock follows a <strong>Cox-Ross-Rubinstein</strong> tree
+    with annual steps:
+  </p>
+  <pre>u = e^σ,   d = 1/u,   p = (e^(r − q) − d) / (u − d)
+hold    = (p · V_up + (1 − p) · V_down) / e^r + coupon
+convert = conversion ratio × S  (+ coupon, if the terms pay it on conversion)
+V       = max(hold, convert)</pre>
+  <p class="where">
+    At maturity, holding is worth the face plus the last coupon. Today's node carries no coupon, because none is paid
+    today. On the workbook's inputs the tree gives 1,504.0111, the workbook's answer.
+  </p>
+
+  <h2 id="coursework">The coursework models</h2>
+  <p>
+    The Basics area rebuilds the models from my fixed income derivatives course. Each opens on the workbook's own inputs
+    and shows each workbook cell beside the number it gets. bondlab's tests check every one of those cells.
+  </p>
+  <table>
+    <thead><tr><th>Model</th><th>Workbook sheet</th><th>Matches</th></tr></thead>
+    <tbody>
+      <tr><td>Price, coupon and maturity effects</td><td>Coupon, Maturity</td><td>To 10⁻⁸</td></tr>
+      <tr><td>Price over time, yield change</td><td>Time path, Yield Change</td><td>To 10⁻⁸</td></tr>
+      <tr><td>Duration and convexity</td><td>Duration and Convexity</td><td>To 10⁻⁶</td></tr>
+      <tr><td>Duration's tangent line</td><td>Tangency</td><td>To 10⁻⁶</td></tr>
+      <tr><td>Bootstrapping</td><td>Bootstrapping</td><td>To Goal Seek's precision (see below)</td></tr>
+      <tr><td>Callable bond on a rate tree</td><td>Binomial Tree; final exam Q1</td><td>To 10⁻⁸</td></tr>
+      <tr><td>Convertible bond</td><td>Convertible Bond</td><td>To 10⁻⁸</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The workbook solved its bootstrapped spot rates with Goal Seek, which stops about 0.0001 percentage points short of
+    the exact answer. bondlab solves exactly. Rebuilding the sheet also turned up one error in it. The six-year spot rate
+    reads a coupon from an empty cell (<code>=E22/2</code> where <code>=E13/2</code> was meant), which leaves the fourth
+    coupon undiscounted and shows 6.7017% instead of 6.5543%. The lab gives the corrected value and says so beside it.
+  </p>
+  <p>
+    The workbook's Black-Scholes sheet is not repeated here: the <a href="https://options.blessedshoh.dev">options tool</a>
+    prices options with the same formula.
+  </p>
+
+  {files.length > 0 && (
+    <>
+      <h2 id="downloads">The coursework itself</h2>
+      <p>The workbooks the lab was built from, cleaned for posting:</p>
+      <ul>
+        {files.map((f) => (
+          <li><a href={`/coursework/${f.file}`} download>{f.title}</a>. {f.note}</li>
+        ))}
+      </ul>
+    </>
+  )}
+
+  <h2 id="engine">The engine</h2>
+  <p>
+    bondlab is written in Python with numpy and scipy, type-checked with mypy in strict mode, and tested against
+    independent sources: the workbooks above, the Treasury's own published files, and textbook examples. Every formula
+    in its code names its source. Conventions are never defaulted. A Treasury or a corporate bond is built from a named
+    preset that writes its conventions out.
+  </p>
+  <p>
+    The lab sends what is on screen to the API and draws what comes back. The browser does no finance of its own, so
+    every number on screen can be reproduced by calling bondlab directly.
+  </p>
+</Doc>
