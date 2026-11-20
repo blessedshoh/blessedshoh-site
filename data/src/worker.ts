@@ -49,7 +49,14 @@ async function missingDays(db: Database, days: TreasuryDay[]): Promise<TreasuryD
   return days.filter((d) => (stored.get(d.day) ?? 0) < Object.keys(d.yields).length);
 }
 
+/**
+ * Record a run's outcome: first in the Worker's own log (Cloudflare Observability), which
+ * needs nothing from D1, then in the hub's change log. On 2026-11-19 the backfill used up
+ * D1's free daily write allowance and the change-log insert was refused, leaving no record of
+ * a day that had been stored. A refused insert still ends the run as an error, so it shows.
+ */
 async function log(db: Database, summary: string) {
+  console.log(summary);
   await db.prepare("INSERT INTO changes (who, area, summary) VALUES ('data worker', 'data', ?)").bind(summary.slice(0, 300)).run();
 }
 

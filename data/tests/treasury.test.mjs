@@ -197,3 +197,24 @@ test("when a write fails, the days already stored are logged with the failure", 
   assert.match(db.logs.join(" | "), /Treasury curve loaded: 2026-11-16/);
   assert.match(db.logs.join(" | "), /failed.*D1 is unavailable/);
 });
+
+test("what a run stored reaches the Worker log even when D1 refuses the change-log write", async () => {
+  // 2026-11-19: the backfill used up D1's free daily write allowance; the night's run stored
+  // its day, then the change-log insert was refused and the run ended with no record of it.
+  const db = recordingDb({ "2026-11-13": 14 });
+  const run = db.prepare;
+  db.prepare = (sql) => {
+    const s = run(sql);
+    if (sql.startsWith("INSERT INTO changes")) s.run = async () => { throw new Error("D1_ERROR: daily row write limit"); };
+    return s;
+  };
+  const printed = [];
+  const original = console.log;
+  console.log = (...args) => printed.push(args.join(" "));
+  try {
+    await assert.rejects(loadLatest({ DB: db }, NOV19, async () => new Response(Y2026_THREE, { status: 200 })), /write limit/);
+  } finally {
+    console.log = original;
+  }
+  assert.match(printed.join(" | "), /Treasury curve loaded: 2026-11-16, 2026-11-17, 2026-11-18/);
+});
