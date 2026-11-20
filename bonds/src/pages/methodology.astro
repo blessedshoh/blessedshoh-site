@@ -181,8 +181,8 @@ V       = max(hold, convert)</pre>
   </table>
   <p>
     The workbook solved its bootstrapped spot rates with Goal Seek, which stops about 0.0001 percentage points short of
-    the exact answer. bondlab solves exactly. Rebuilding the sheet also turned up one error in it. The six-year spot rate
-    reads a coupon from an empty cell (<code>=E22/2</code> where <code>=E13/2</code> was meant), which leaves the fourth
+    the exact answer. bondlab solves exactly. Rebuilding the sheet also turned up one error in it. The three-year spot rate
+    (the sixth semiannual period) reads a coupon from an empty cell (<code>=E22/2</code> where <code>=E13/2</code> was meant), which leaves the fourth
     coupon undiscounted and shows 6.7017% instead of 6.5543%. The lab gives the corrected value and says so beside it.
   </p>
   <p>

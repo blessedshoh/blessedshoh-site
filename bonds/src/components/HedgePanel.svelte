@@ -5,7 +5,7 @@
   import KeyRateChart from "./KeyRateChart.svelte";
   import { fetchHedge } from "../lib/api.ts";
   import type { StoredCurve } from "../lib/curve-data.ts";
-  import { hedgeRequest, isValidBond, isValidHedge } from "../lib/state.ts";
+  import { fitHedgeToDay, hedgeRequest, isValidBond, isValidHedge } from "../lib/state.ts";
   import { track } from "../lib/track.ts";
   import { HEDGE_TENORS, type BondInput, type HedgeInput, type HedgeResponse, type Scheme } from "../lib/types.ts";
 
@@ -20,6 +20,8 @@
   let { apiBase, stored, scheme, bond = $bindable(), hedge = $bindable() }: Props = $props();
 
   let result = $state.raw<HedgeResponse | null>(null);
+  /** The position face the shown result was computed for, so the headline never mixes inputs. */
+  let resultFace = $state(0);
   let busy = $state(false);
   let problem = $state("");
   let timer = 0;
@@ -44,11 +46,18 @@
     if (mode === "dv01") hedge.tenors = [hedge.tenors.includes("10 Yr") ? "10 Yr" : (hedge.tenors[0] ?? "10 Yr")];
   }
 
+  // A day without some maturity (no 30-year from 2002 to 2006) drops it from the hedge.
+  $effect(() => {
+    const fitted = fitHedgeToDay($state.snapshot(hedge) as HedgeInput, available);
+    if (fitted.tenors.length !== hedge.tenors.length) untrack(() => (hedge.tenors = fitted.tenors));
+  });
+
   $effect(() => {
     void key;
     untrack(() => {
       window.clearTimeout(timer);
       if (!valid) {
+        result = null;
         problem =
           hedge.mode === "dv01" ? "A DV01 hedge uses one Treasury; pick one maturity." : "A key-rate hedge uses one to four distinct maturities.";
         return;
@@ -63,11 +72,14 @@
     busy = true;
     try {
       const curveInput = { day: stored.day, yields: stored.yields, scheme };
-      result = await fetchHedge(apiBase, hedgeRequest(curveInput, $state.snapshot(bond) as BondInput, $state.snapshot(hedge) as HedgeInput), mine.signal);
+      const sent = $state.snapshot(hedge) as HedgeInput;
+      result = await fetchHedge(apiBase, hedgeRequest(curveInput, $state.snapshot(bond) as BondInput, sent), mine.signal);
+      resultFace = sent.faceAmount;
       problem = "";
       track("hedged");
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
+      result = null;
       problem = error instanceof TypeError ? "The pricing server could not be reached." : (error as Error).message;
     } finally {
       if (controller === mine) busy = false;
@@ -77,7 +89,7 @@
   const amount = (v: number) => Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
   // A hedge under a hundredth of a percent of the position is no trade at all (e.g. a 30-year
   // hedge against a 10-year bond, which has no 30-year exposure).
-  const trades = (h: HedgeResponse["hedges"][number]) => Math.abs(h.face) >= 1e-4 * hedge.faceAmount;
+  const trades = (h: HedgeResponse["hedges"][number]) => Math.abs(h.face) >= 1e-4 * resultFace;
   const material = $derived((result?.hedges ?? []).filter(trades));
   const rows = $derived(
     (result?.keyRates ?? []).filter((k) => !/Mo|Month/.test(k.tenor)).map((k) => ({ tenor: k.tenor, values: [k.before, k.after] })),
@@ -97,7 +109,7 @@
     <div class="kicker">Hedge · {bond.coupon}% {bond.preset === "UST" ? "Treasury" : "corporate"} maturing {bond.maturity}</div>
     <h1>
       {result && material.length > 0
-        ? `Hedge ${amount(hedge.faceAmount)} face with ${material.map((h) => `${h.face < 0 ? "a short" : "a long"} ${h.tenor}`).join(", ")}`
+        ? `Hedge ${amount(resultFace)} face with ${material.map((h) => `${h.face < 0 ? "a short" : "a long"} ${h.tenor}`).join(", ")}`
         : "Hedge the bond's rate risk"}
     </h1>
     <p class="dek">

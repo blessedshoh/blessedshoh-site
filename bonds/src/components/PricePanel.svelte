@@ -32,6 +32,7 @@
     untrack(() => {
       window.clearTimeout(timer);
       if (!valid) {
+        result = null;
         problem = "Check the inputs: coupon 0–20%, a real maturity date, and a spread, yield or price in range.";
         return;
       }
@@ -50,6 +51,7 @@
       track("priced");
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
+      result = null;
       problem = error instanceof TypeError ? "The pricing server could not be reached." : (error as Error).message;
     } finally {
       if (controller === mine) busy = false;

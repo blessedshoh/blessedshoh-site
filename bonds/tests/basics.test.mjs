@@ -88,3 +88,17 @@ test("the final exam's callable bond is offered as a preset with its own answer"
   assert.deepEqual(exam.workbook, [{ field: "value", value: 982.2212369016, cell: "FI_final_ShohruhM.xlsx, Q1!C21" }]);
   assert.equal(basicsProblem("rate-tree", exam.inputs), "");
 });
+
+test("a crafted link cannot smuggle fields into a model", () => {
+  const encode = (basics) => encodeLab({ area: "basics", day: null, basics });
+  const price = DEFAULTS.price.inputs;
+  assert.equal(decodeLab(encode({ model: "price", inputs: { ...price, model: "convertible" } })), null);
+  assert.equal(decodeLab(encode({ model: "price", inputs: { ...price, years: "20" } })), null);
+  assert.equal(decodeLab(encode({ model: "price", inputs: { face: 100 } })), null);
+  assert.equal(decodeLab(encode({ model: "rate-tree", inputs: { ...DEFAULTS["rate-tree"].inputs, lowestRates: ["x"] } })), null);
+});
+
+test("requests carry only the model's own fields", () => {
+  const { body } = basicsRequest("price", { ...DEFAULTS.price.inputs, model: "convertible", extra: 1 });
+  assert.deepEqual(body, { model: "price", ...DEFAULTS.price.inputs });
+});

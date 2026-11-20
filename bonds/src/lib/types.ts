@@ -74,7 +74,7 @@ export interface CurveResponse {
   missing: string[];
   pillars: CurvePillar[];
   grid: CurveGridPoint[];
-  nelsonSiegel: { beta0: number; beta1: number; beta2: number; decay: number; grid: { years: number; zeroContinuous: number }[] };
+  nelsonSiegel: { beta0: number; beta1: number; beta2: number; decay: number; grid: { years: number; zero: number; zeroContinuous: number }[] };
 }
 
 export interface KeyRate {

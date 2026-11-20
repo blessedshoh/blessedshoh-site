@@ -20,7 +20,7 @@ test("a bond and a hedge round-trip", () => {
 });
 
 test("a basics model with its inputs round-trips", () => {
-  const state = { area: "basics", day: null, basics: { model: "tangent", inputs: { face: 100, coupon: 5, years: 50 } } };
+  const state = { area: "basics", day: null, basics: { model: "tangent", inputs: { face: 100, coupon: 5, years: 50, frequency: 1, ytm: 5, shift: -4 } } };
   assert.deepEqual(decodeLab(encodeLab(state)), state);
 });
 

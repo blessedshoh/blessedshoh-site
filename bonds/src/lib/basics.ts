@@ -52,7 +52,7 @@ export const MODELS: Record<BasicsModel, ModelInfo> = {
       { key: "source", label: "Rates from", kind: "choice", choices: [["tree", "The workbook's tree"], ["par", "Fit to par yields"]] },
       pct("volatility", "Rate volatility %", 0.01, 100),
       { key: "lowestRates", label: "Lowest rate per year %", kind: "list", min: -5, max: 50, step: 0.05, when: (i) => i.source === "tree" },
-      { key: "parYields", label: "Par yields %", kind: "list", min: -5, max: 50, step: 0.05, when: (i) => i.source === "par" },
+      { key: "parYields", label: "Par yields %", kind: "list", min: 0.01, max: 50, step: 0.05, when: (i) => i.source === "par" },
       FACE,
       pct("coupon", "Coupon %"),
       yrs("years", "Years", 30),
@@ -109,7 +109,9 @@ export function basicsProblem(model: BasicsModel, inputs: Inputs): string {
 }
 
 /** The route and body for a model: only the fields that route reads. */
-export function basicsRequest(model: BasicsModel, inputs: Inputs): { route: "basics" | "rate-tree" | "convertible"; body: Inputs } {
+export function basicsRequest(model: BasicsModel, given: Inputs): { route: "basics" | "rate-tree" | "convertible"; body: Inputs } {
+  // Only the model's own fields go out, whatever else the inputs hold.
+  const inputs: Inputs = Object.fromEntries(MODELS[model].fields.filter((f) => f.key in given).map((f) => [f.key, given[f.key]]));
   if (model === "convertible") return { route: "convertible", body: { ...inputs } };
   if (model === "rate-tree") {
     const { source, lowestRates, parYields, strike, ...rest } = inputs;

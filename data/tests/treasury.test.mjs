@@ -95,17 +95,20 @@ test("yields for a day come back keyed by maturity", async () => {
 
 import { loadLatest } from "../src/worker.ts";
 
-function recordingDb(latest) {
-  const writes = [];
+// stored: { day: number of maturities stored }. failOnBatch: the 1-based batch that throws.
+function recordingDb(stored, failOnBatch = 0) {
+  const batches = [];
   const logs = [];
+  let calls = 0;
   const statement = (sql) => ({
     values: [],
     bind(...values) {
       this.values = values;
       return this;
     },
-    async first() {
-      return { day: latest };
+    async all() {
+      const from = this.values[0];
+      return { results: Object.entries(stored).filter(([day]) => day >= from).map(([day, n]) => ({ day, n })) };
     },
     async run() {
       if (sql.startsWith("INSERT INTO changes")) logs.push(this.values[0]);
@@ -113,17 +116,22 @@ function recordingDb(latest) {
     },
   });
   return {
-    writes,
+    batches,
     logs,
+    get writes() {
+      return batches.flat();
+    },
     prepare: statement,
     async batch(statements) {
-      writes.push(...statements.map((s) => s.values));
+      calls += 1;
+      if (calls === failOnBatch) throw new Error("D1 is unavailable");
+      batches.push(statements.map((s) => s.values));
     },
   };
 }
 
 test("the scheduled load stores only newer days and logs them", async () => {
-  const db = recordingDb("2026-11-17");
+  const db = recordingDb({ "2026-11-17": 14 });
   const fetcher = async () => new Response(Y2026, { status: 200 });
   const added = await loadLatest({ DB: db }, new Date("2026-11-19T23:30:00Z"), fetcher);
   assert.deepEqual(added, ["2026-11-18"]);
@@ -132,7 +140,7 @@ test("the scheduled load stores only newer days and logs them", async () => {
 });
 
 test("an HTML error page stores nothing and logs the failure", async () => {
-  const db = recordingDb("2026-11-17");
+  const db = recordingDb({ "2026-11-17": 14 });
   const fetcher = async () => new Response("<html>Temporarily unavailable</html>", { status: 200 });
   assert.deepEqual(await loadLatest({ DB: db }, new Date("2026-11-19T23:30:00Z"), fetcher), []);
   assert.equal(db.writes.length, 0);
@@ -140,7 +148,7 @@ test("an HTML error page stores nothing and logs the failure", async () => {
 });
 
 test("a refused request stores nothing and logs the status", async () => {
-  const db = recordingDb("2026-11-17");
+  const db = recordingDb({ "2026-11-17": 14 });
   const fetcher = async () => new Response("", { status: 503 });
   await loadLatest({ DB: db }, new Date("2026-11-19T23:30:00Z"), fetcher);
   assert.equal(db.writes.length, 0);
@@ -148,7 +156,7 @@ test("a refused request stores nothing and logs the status", async () => {
 });
 
 test("in the first week of January last year's file is read too", async () => {
-  const db = recordingDb("2026-12-30");
+  const db = recordingDb({ "2026-12-30": 14 });
   const years = [];
   const fetcher = async (url) => {
     years.push(/csv\/(\d{4})\//.exec(url)[1]);
@@ -156,4 +164,36 @@ test("in the first week of January last year's file is read too", async () => {
   };
   await loadLatest({ DB: db }, new Date("2027-01-03T23:30:00Z"), fetcher);
   assert.deepEqual(years, ["2026", "2027"]);
+});
+
+const Y2026_THREE =
+  Y2026 + "11/16/2026,4.08,4.23,4.25,4.32,4.31,4.40,4.59,4.79,4.83,4.89,4.98,5.09,5.49,5.45\n";
+const NOV19 = new Date("2026-11-19T23:30:00Z");
+
+test("new days are written oldest first, one transaction per day", async () => {
+  const db = recordingDb({ "2026-11-13": 14 });
+  const added = await loadLatest({ DB: db }, NOV19, async () => new Response(Y2026_THREE, { status: 200 }));
+  assert.deepEqual(added, ["2026-11-16", "2026-11-17", "2026-11-18"]);
+  assert.deepEqual(db.batches.map((b) => [b.length, b[0][0]]), [[14, "2026-11-16"], [14, "2026-11-17"], [14, "2026-11-18"]]);
+});
+
+test("a gap below the latest stored day is filled on the next run", async () => {
+  const db = recordingDb({ "2026-11-16": 14, "2026-11-18": 14 });
+  const added = await loadLatest({ DB: db }, NOV19, async () => new Response(Y2026_THREE, { status: 200 }));
+  assert.deepEqual(added, ["2026-11-17"]);
+});
+
+test("a day stored with maturities missing is completed", async () => {
+  const db = recordingDb({ "2026-11-16": 14, "2026-11-17": 6, "2026-11-18": 14 });
+  const added = await loadLatest({ DB: db }, NOV19, async () => new Response(Y2026_THREE, { status: 200 }));
+  assert.deepEqual(added, ["2026-11-17"]);
+  assert.equal(db.writes.length, 14);
+});
+
+test("when a write fails, the days already stored are logged with the failure", async () => {
+  const db = recordingDb({}, 2);
+  const added = await loadLatest({ DB: db }, NOV19, async () => new Response(Y2026_THREE, { status: 200 }));
+  assert.deepEqual(added, ["2026-11-16"]);
+  assert.match(db.logs.join(" | "), /Treasury curve loaded: 2026-11-16/);
+  assert.match(db.logs.join(" | "), /failed.*D1 is unavailable/);
 });

@@ -84,7 +84,10 @@
     const key = JSON.stringify([current.model, snapshot]);
     untrack(() => {
       window.clearTimeout(timer);
-      if (problem) return;
+      if (problem) {
+        result = null;
+        return;
+      }
       timer = window.setTimeout(() => load(key), 250);
     });
   });
@@ -102,6 +105,7 @@
       track("basics");
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
+      result = null;
       failure = error instanceof TypeError ? "The pricing server could not be reached." : (error as Error).message;
     } finally {
       if (controller === mine) busy = false;

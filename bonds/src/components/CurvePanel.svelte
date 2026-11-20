@@ -76,7 +76,7 @@
       if (showForward)
         out.push({ key: "forward", label: "3-month forward", points: curve.grid.filter((g) => g.forward !== null).map((g) => ({ x: g.years, y: g.forward! })), style: "dash", color: "var(--series-3)" });
       if (showNelson)
-        out.push({ key: "ns", label: "Nelson-Siegel (continuous zero)", points: curve.nelsonSiegel.grid.map((g) => ({ x: g.years, y: g.zeroContinuous })), style: "dot", color: "var(--muted)" });
+        out.push({ key: "ns", label: "Nelson-Siegel", points: curve.nelsonSiegel.grid.map((g) => ({ x: g.years, y: g.zero })), style: "dot", color: "var(--muted)" });
     }
     return out;
   });
@@ -165,7 +165,8 @@
         <p class="aside">
           Nelson-Siegel fitted to the continuous zero rates: β₀ {curve.nelsonSiegel.beta0.toFixed(3)}%, β₁ {curve.nelsonSiegel.beta1.toFixed(3)}%,
           β₂ {curve.nelsonSiegel.beta2.toFixed(3)}%, decay {curve.nelsonSiegel.decay.toFixed(3)}. It is smooth everywhere but does not pass through
-          every published yield; the bootstrapped curve does.
+          every published yield; the bootstrapped curve does. The chart draws it on the zero line's semiannual basis, so the gap you see is fit, not
+          compounding.
         </p>
       {/if}
     </div>

@@ -1,6 +1,7 @@
 // The lab's state lives in the page address so any view can be shared as a link.
 // Format: #l=<base64url of a compact JSON object>. Nothing read from an address is trusted.
 
+import { MODELS } from "./basics.ts";
 import { AREAS, BASICS_MODELS, HEDGE_TENORS, type Area, type BasicsInput, type BondInput, type CurveInput, type HedgeInput, type LabState } from "./types.ts";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,12 +33,33 @@ export function isValidHedge(hedge: HedgeInput | undefined): hedge is HedgeInput
   return hedge.mode === "dv01" ? hedge.tenors.length === 1 : hedge.tenors.length >= 1 && hedge.tenors.length <= 4;
 }
 
+/** A model and inputs holding exactly that model's fields, each of the right kind. Limits are basicsProblem's job. */
 export function isValidBasics(basics: BasicsInput | undefined): basics is BasicsInput {
   if (!basics || !(BASICS_MODELS as readonly string[]).includes(basics.model)) return false;
-  if (typeof basics.inputs !== "object" || basics.inputs === null || Array.isArray(basics.inputs)) return false;
-  return Object.values(basics.inputs).every(
-    (v) => typeof v === "boolean" || typeof v === "string" || (typeof v === "number" && Number.isFinite(v)) || (Array.isArray(v) && v.every((x) => typeof x === "number" && Number.isFinite(x))),
-  );
+  const inputs = basics.inputs as unknown;
+  if (typeof inputs !== "object" || inputs === null || Array.isArray(inputs)) return false;
+  const given = inputs as Record<string, unknown>;
+  const fields = MODELS[basics.model].fields;
+  if (Object.keys(given).length !== fields.length) return false;
+  const finite = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  return fields.every((f) => {
+    const v = given[f.key];
+    if (f.kind === "bool") return typeof v === "boolean";
+    if (f.kind === "choice") return (f.choices ?? []).some(([c]) => c === v);
+    if (f.kind === "list") return Array.isArray(v) && v.length <= 30 && v.every(finite);
+    return finite(v);
+  });
+}
+
+/**
+ * The hedge with any maturity the day did not publish removed, so it can still be solved
+ * (no 30-year from 2002 to 2006, for one). Returns the same object when nothing changes.
+ */
+export function fitHedgeToDay(hedge: HedgeInput, available: readonly string[]): HedgeInput {
+  const kept = hedge.tenors.filter((t) => available.includes(t));
+  if (kept.length === hedge.tenors.length) return hedge;
+  const fallback = available.includes("10 Yr") ? "10 Yr" : (HEDGE_TENORS.filter((t) => available.includes(t)).at(-1) ?? "10 Yr");
+  return { ...hedge, tenors: kept.length > 0 ? kept : [fallback] };
 }
 
 function toBase64Url(text: string): string {
