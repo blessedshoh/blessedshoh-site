@@ -11,7 +11,7 @@
 
   let width = $state(360);
   const ROW = 34;
-  const LABEL = 92;
+  const LABEL = 100;
   const VALUE = 54;
   const height = $derived(bars.length * ROW);
   const span = $derived(Math.max(40, width - LABEL - VALUE));

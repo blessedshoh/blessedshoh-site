@@ -142,7 +142,7 @@
     result
       ? [
           ...NAMES.map((name, k) => ({ label: name, share: result!.explained[k], color: COLORS[k] })),
-          { label: "Everything else", share: result.explained.slice(3).reduce((a, b) => a + b, 0), color: "var(--muted)" },
+          { label: "The rest", share: result.explained.slice(3).reduce((a, b) => a + b, 0), color: "var(--muted)" },
         ]
       : [],
   );
@@ -151,7 +151,8 @@
   const threeShare = $derived(result ? result.explained.slice(0, 3).reduce((a, b) => a + b, 0) : 0);
 
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-  const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  // Whole dollars; anything that rounds to zero is shown as $0, never −$0.
+  const money = (v: number) => `${Math.round(v) < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const face = (v: number) => Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
   const num = (v: number, digits = 2) => v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const trades = (row: FactorRow) => row.hedges.filter((h) => Math.abs(h.face) >= 1e-4 * hedge.faceAmount);
@@ -219,7 +220,11 @@
     <section class="card wide" class:busy>
       <h2 class="section">How the factors moved</h2>
       <LineChart series={pathSeries} xLabel="Date" xFormat={dateLabel} yLabel="cumulative bp" yDigits={1} label="Cumulative level, slope and curvature moves over the window" />
-      <p class="note">Running sums of each day's move projected on the shape. Each line ends at the window's net curve move in that factor.</p>
+      <p class="note">
+        Running sums of each day's move projected on the shape. Each line ends at the window's net curve move in that factor. The units are
+        basis points along a shape, and each shape is a unit vector across the maturities, so a 1 bp rise in every yield adds about √m to level
+        (3.2 for ten maturities), not 1.
+      </p>
     </section>
 
     <section class="card wide" class:busy>
@@ -233,7 +238,7 @@
       {:else if position}
         <div class="scroll">
           <table class="num">
-            <thead><tr><th>Factor</th><th>Typical daily move</th><th>Your P&amp;L on that move</th></tr></thead>
+            <thead><tr><th>Factor</th><th>Typical day</th><th>Your P&amp;L</th></tr></thead>
             <tbody>
               {#each NAMES as name, k (name)}
                 <tr><td>{name}</td><td>{num(result.dailySd[k])} bp</td><td class:neg={position.exposures[k] < 0} class:pos={position.exposures[k] > 0}>{money(position.exposures[k])}</td></tr>
@@ -273,7 +278,7 @@
       <summary><span class="title">Show your work</span> <span class="hint">From daily yield changes to a hedge</span></summary>
       <div class="body">
         <p>
-          <b>1. Changes.</b> ΔY holds the daily changes in basis points: {result.observations.toLocaleString("en-US")} days by {result.tenors.length} maturities.
+          <b>1. Changes.</b> ΔY holds the daily changes in basis points: {result.observations.toLocaleString("en-US")} daily changes by {result.tenors.length} maturities.
           {#if result.dropped.length > 0}{result.dropped.map((d) => d.tenor).join(", ")} left out because not published every day.{/if}
         </p>
         <p><b>2. Covariance.</b> Centre each column, then <code>S = XᵀX / (N − 1)</code> with N = {result.observations.toLocaleString("en-US")}.</p>
@@ -285,12 +290,12 @@
         </p>
         {#if position}
           <p>
-            <b>4. Exposure.</b> The bond's par-yield DV01 at each maturity times that maturity's loading, scaled by a typical move:
+            <b>4. Exposure.</b> The bond's par-yield DV01 at each maturity (dollars per bp, for the position) times that maturity's level
+            loading, scaled by a typical move:
             <code>
               level = −{num(result.dailySd[0])} × ({position.dv01s
-                .slice(0, 3)
-                .map((d, i) => `${num(d.dv01, 1)}×${num(result!.loadings[0][i], 3)}`)
-                .join(" + ")} + …) = {money(position.exposures[0])}
+                .map((d, i) => `${d.dv01 < 0 ? `(${num(d.dv01, 1)})` : num(d.dv01, 1)}×${num(result!.loadings[0][i], 3)}`)
+                .join(" + ")}) = {money(position.exposures[0])}
             </code>
           </p>
           <p>
