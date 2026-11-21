@@ -146,6 +146,7 @@ export const BOND_FLAGS = [
   { key: "curve", label: "Today's curve", help: "The Treasury par curve for any day since 1990, fitted three ways." },
   { key: "price", label: "Price a bond", help: "Price, yield, spread, durations, convexity and key-rate durations." },
   { key: "hedge", label: "Hedge", help: "DV01 and key-rate hedges with on-the-run Treasuries." },
+  { key: "factors", label: "Curve factors", help: "Level, slope and curvature from daily Treasury moves, and a factor hedge." },
   { key: "basics", label: "Basics", help: "The coursework models: pricing, duration, bootstrapping and the two trees." },
 ] as const;
 

@@ -19,7 +19,7 @@ test("a switch form reads only that tool's flags", () => {
   form.set("flag_curve", "on");
   form.set("flag_basics", "on");
   form.set("flag_risk", "on");
-  assert.deepEqual(flagsFromForm(form, BOND_FLAGS), { curve: true, price: false, hedge: false, basics: true });
+  assert.deepEqual(flagsFromForm(form, BOND_FLAGS), { curve: true, price: false, hedge: false, factors: false, basics: true });
   assert.equal(flagsFromForm(form, OPTION_FLAGS).risk, true);
   assert.equal("curve" in flagsFromForm(form, OPTION_FLAGS), false);
 });

@@ -25,6 +25,7 @@ const EVENT_LABELS: Record<string, Record<string, string>> = {
     priced: "Bonds priced",
     hedged: "Hedges calculated",
     basics: "Coursework models run",
+    factors: "Factor analyses run",
   },
 };
 

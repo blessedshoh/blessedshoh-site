@@ -6,6 +6,7 @@ const sections = [
   { id: "credit", title: "Corporates have no credit curve" },
   { id: "local", title: "Risk numbers are local" },
   { id: "hedges", title: "Idealised hedges" },
+  { id: "factors", title: "Curve factors are fitted to the past" },
   { id: "tree", title: "The rate tree is simple" },
   { id: "convertible", title: "The convertible has no credit risk" },
   { id: "textbook", title: "The coursework models are textbook" },
@@ -90,6 +91,41 @@ const sections = [
     <p>
       A hedge holds only for the curve it was computed on. As rates move and time passes the exposures drift, and the
       hedge has to be rebalanced.
+    </p>
+  </div>
+
+  <h2 id="factors">Curve factors are fitted to the past</h2>
+  <div class="limit">
+    <span class="tag">Large effect</span>
+    <h3>In-sample, and the window changes the answer</h3>
+    <p>
+      The factors are estimated from the window you pick, and the hedge comparison is scored on that same window. A
+      hedge that looks best on the history it was fitted to is not promised to stay best. The shapes and their shares
+      also change with the window: a stretch of rate cuts, when the short end moves on its own, gives slope a much larger
+      share than a quiet year.
+    </p>
+  </div>
+  <div class="limit">
+    <span class="tag mild">Moderate effect</span>
+    <h3>Linear exposures, on a curve of the window's maturities</h3>
+    <p>
+      Exposures and daily risk are first order: DV01s times moves. For a typical day that is accurate. For a move of
+      tens of basis points, convexity matters and the numbers understate gains and overstate losses.
+    </p>
+    <p>
+      The curve behind these exposures uses only the maturities kept for the window, so the bond's value can differ a
+      little from the Price tab, which uses every published maturity. A bond longer than the window's longest kept
+      maturity gets no exposures rather than an extrapolated guess.
+    </p>
+  </div>
+  <div class="limit">
+    <span class="tag mild">Small effect</span>
+    <h3>The tenor set changes over time, and so do the days</h3>
+    <p>
+      Windows that touch 1990–93, 2002–06 or December 2008 lose a maturity, so their factors are on fewer points than a
+      recent window's and are not directly comparable. A change across a weekend or holiday counts as one day, as in
+      the original study. The yields are points on the Treasury's fitted curve, not traded bonds, so some of the
+      smallest factors partly reflect the fitting rather than the market.
     </p>
   </div>
 

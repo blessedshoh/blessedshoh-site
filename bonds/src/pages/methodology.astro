@@ -9,6 +9,7 @@ const sections = [
   { id: "pricing", title: "Pricing a bond" },
   { id: "key-rates", title: "Key-rate durations" },
   { id: "hedge", title: "Hedging" },
+  { id: "factors", title: "Curve factors (PCA)" },
   { id: "tree", title: "The rate tree" },
   { id: "convertible", title: "The convertible tree" },
   { id: "coursework", title: "The coursework models" },
@@ -20,7 +21,7 @@ const sections = [
 <Doc
   title="How it works"
   kicker="Fixed income lab · methodology"
-  description="How the fixed income lab builds the Treasury curve, prices and hedges bonds, and values callable and convertible bonds, with every formula it uses."
+  description="How the fixed income lab builds the Treasury curve, prices and hedges bonds, finds the curve's factors, and values callable and convertible bonds, with every formula it uses."
   lede="Every number in the lab comes from bondlab, a Python fixed income library, through the same API as the options tool. This page sets out what it computes and how, in the order the lab uses it."
   sections={sections}
 >
@@ -128,6 +129,77 @@ clean price = dirty price − accrued interest</pre>
     The hedged position then has zero DV01 at every chosen pillar. Unchosen pillars keep whatever exposure is left, and
     the lab shows it bar by bar. A set of hedges that cannot be solved, such as two hedges with the same exposure, is
     refused with the reason.
+  </p>
+
+  <h2 id="factors">Curve factors (PCA)</h2>
+  <p>
+    Litterman and Scheinkman (1991) found that almost all of the day-to-day movement of the Treasury curve is three
+    shapes: a parallel <strong>level</strong> shift, a change of <strong>slope</strong>, and a change of
+    <strong>curvature</strong>. The Factors tab finds those shapes in the stored data, over a window of 1, 2, 5 or 10
+    years ending on the curve day.
+  </p>
+  <p>
+    <strong>The tenor set.</strong> The candidates are the ten maturities from 3 months to 30 years. A maturity is used
+    only if the Treasury published it on every day of the window, and the tab names any it leaves out, with the first
+    day it is missing. The stored data has three gaps that matter here. There is no 20-year yield before 1 October 1993,
+    no 30-year from February 2002 to February 2006, and no 3-month on three days in December 2008. The 1-month and newer
+    bills start too late (2001 to 2025) to use.
+  </p>
+  <p><strong>1. Changes.</strong> With Y the window's par yields (n days by m maturities), the daily changes in basis points are</p>
+  <pre>ΔY = 10,000 · (Yₜ − Yₜ₋₁)      N = n − 1 changes</pre>
+  <p class="where">A change across a weekend or a holiday counts as one day.</p>
+  <p><strong>2. Covariance.</strong> Centre each column (X = ΔY minus its column means) and take the sample covariance in bp²:</p>
+  <pre>S = XᵀX / (N − 1)</pre>
+  <p><strong>3. Eigen-decomposition.</strong></p>
+  <pre>S = V Λ Vᵀ      λ₁ ≥ λ₂ ≥ … ≥ λₘ</pre>
+  <p class="where">
+    Column vₖ is factor k's loading on each maturity, a unit vector. λₖ / Σλ is its share of the variance, and a typical
+    day (one standard deviation) moves the curve by √λₖ · vₖ bp. An eigenvector's sign is arbitrary, so the lab fixes
+    it to read naturally: level loadings sum to a positive number, slope is higher at the long end than the short end,
+    and curvature is higher in the middle than at the two ends.
+  </p>
+  <p>
+    <strong>4. How the factors moved.</strong> Each day's raw change is projected on each shape, ΔYₜ · vₖ, and the
+    chart shows the running sums. They end at (Y<sub>end</sub> − Y<sub>start</sub>) · vₖ, the window's net curve move in
+    that factor. Centred scores would always end at zero and hide it.
+  </p>
+  <p>
+    <strong>5. Par-yield DV01s.</strong> The factors are moves in published par yields, so a bond's exposure needs its
+    sensitivity to each par yield, dₜ: the value lost for a 1 bp rise in the yield at maturity t, with the curve rebuilt.
+    Rebuilding the curve once per maturity would cost a bootstrap each. The lab uses the chain rule instead. It shifts
+    each zero-rate pillar s by a hundredth of a basis point and records how the bond's value moves (kₛ) and how each
+    published yield moves (Jₜₛ), then solves one small system:
+  </p>
+  <pre>kₛ = Σₜ dₜ Jₜₛ      ⇒      Jᵀ d = k</pre>
+  <p class="where">
+    Bootstrapping is the inverse of reading quotes off the curve, so this equals rebuilding from bumped par yields to
+    first order, and the tests check it against full rebuilds. The shift is a hundredth of a basis point because, with
+    monotone convex interpolation, a full basis point at one pillar can trip the scheme's limiter.
+  </p>
+  <p><strong>6. Exposure.</strong> The P&amp;L of a typical day's move of factor k is</p>
+  <pre>eₖ = −√λₖ · Σₜ dₜ vₖₜ</pre>
+  <p>
+    <strong>7. Level/slope hedge.</strong> Two par Treasuries at the chosen maturities, issued on the curve day as in the
+    Hedge tab. With E[k][h] hedge h's exposure to factor k, the amounts solve
+  </p>
+  <pre>E · n = −e      (k = level, slope)</pre>
+  <p>
+    <strong>8. The comparison.</strong> The same two bonds are used four ways: no hedge; a DV01 hedge with the one
+    nearer the bond's maturity; a key-rate hedge that zeroes the par-yield DV01 at the two maturities; and the
+    level/slope hedge. For each, the daily risk left is the standard deviation of the hedged position's daily P&amp;L,
+    replaying every day of the window through its DV01s:
+  </p>
+  <pre>σ = √(dᵀ S d)</pre>
+  <p class="where">
+    This uses every component, not just three, so it is the window's real history rather than the three-factor model
+    judging itself. The key-rate row uses par-yield key rates, so it can differ slightly from the Hedge tab, which
+    shifts zero rates.
+  </p>
+  <p class="where">
+    Sources: Litterman, R. and Scheinkman, J. (1991), "Common Factors Affecting Bond Returns", <em>Journal of Fixed
+    Income</em> 1(1); Jolliffe, I. T., <em>Principal Component Analysis</em>, 2nd ed., §1.1 and §2.1; Tuckman, B. and
+    Serrat, A., <em>Fixed Income Securities</em>, 3rd ed., the chapter on empirical approaches to risk metrics and
+    hedging.
   </p>
 
   <h2 id="tree">The rate tree</h2>
