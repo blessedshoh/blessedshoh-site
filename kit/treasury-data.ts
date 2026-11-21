@@ -32,3 +32,21 @@ export async function yieldsFor(db: Database, day: string): Promise<Record<strin
     .all<{ tenor: string; yield_pct: number }>();
   return Object.fromEntries(results.map((row) => [row.tenor, row.yield_pct]));
 }
+
+/**
+ * Every stored yield between two days (inclusive) at the given maturities, in day order.
+ * One query over the primary key; the caller pivots the rows.
+ */
+export async function yieldsBetween(
+  db: Database,
+  from: string,
+  to: string,
+  tenors: readonly string[],
+): Promise<{ day: string; tenor: string; yield_pct: number }[]> {
+  const marks = tenors.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(`SELECT day, tenor, yield_pct FROM treasury_par_yields WHERE day BETWEEN ? AND ? AND tenor IN (${marks}) ORDER BY day`)
+    .bind(from, to, ...tenors)
+    .all<{ day: string; tenor: string; yield_pct: number }>();
+  return results;
+}
