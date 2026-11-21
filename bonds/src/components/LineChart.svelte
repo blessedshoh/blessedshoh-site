@@ -11,10 +11,12 @@
     yDigits?: number;
     /** A dashed vertical line, e.g. at today's yield. */
     marker?: { x: number; label: string } | null;
+    /** How x values are written on the axis and in the readout (dates, for one). */
+    xFormat?: ((x: number) => string) | null;
     label: string;
   }
 
-  let { series, xLabel, yLabel, xUnit = "", yDigits = 2, marker = null, label }: Props = $props();
+  let { series, xLabel, yLabel, xUnit = "", yDigits = 2, marker = null, xFormat = null, label }: Props = $props();
 
   let width = $state(760);
   const H = $derived(Math.round(Math.max(220, Math.min(340, width * 0.42))));
@@ -81,7 +83,7 @@
       <text class="tick" x={PAD.left - 8} y={sy(t) + 4} text-anchor="end">{fmt(t)}</text>
     {/each}
     {#each xTicks as t (t)}
-      <text class="tick" x={sx(t)} y={H - 16} text-anchor="middle">{fmt(t)}{xUnit}</text>
+      <text class="tick" x={sx(t)} y={H - 16} text-anchor="middle">{xFormat ? xFormat(t) : fmt(t)}{xUnit}</text>
     {/each}
     <text class="axis" x={width - PAD.right} y={H - 2} text-anchor="end">{xLabel}</text>
     {#if marker}
@@ -99,7 +101,7 @@
   </svg>
   {#if readout}
     <div class="tip" style="left: {Math.min(width - 190, Math.max(0, sx(readout.x) + 10))}px">
-      <div class="num">{xLabel}: {fmt(readout.x)}{xUnit}</div>
+      <div class="num">{xLabel}: {xFormat ? xFormat(readout.x) : fmt(readout.x)}{xUnit}</div>
       {#each readout.rows as row (row.label)}
         <div><span class="dot" style="background: {row.color}"></span>{row.label} <b class="num">{row.y.toFixed(yDigits)}</b></div>
       {/each}

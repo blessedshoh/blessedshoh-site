@@ -2,7 +2,21 @@
 // Format: #l=<base64url of a compact JSON object>. Nothing read from an address is trusted.
 
 import { MODELS } from "./basics.ts";
-import { AREAS, BASICS_MODELS, HEDGE_TENORS, type Area, type BasicsInput, type BondInput, type CurveInput, type HedgeInput, type LabState } from "./types.ts";
+import type { StoredHistory } from "./history-data.ts";
+import {
+  AREAS,
+  BASICS_MODELS,
+  FACTOR_YEARS,
+  HEDGE_TENORS,
+  type Area,
+  type BasicsInput,
+  type BondInput,
+  type CurveInput,
+  type FactorsInput,
+  type HedgeInput,
+  type LabState,
+  type Scheme,
+} from "./types.ts";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const inside = (value: unknown, low: number, high: number): value is number =>
@@ -31,6 +45,15 @@ export function isValidHedge(hedge: HedgeInput | undefined): hedge is HedgeInput
   if (!Array.isArray(hedge.tenors) || new Set(hedge.tenors).size !== hedge.tenors.length) return false;
   if (!hedge.tenors.every((t) => (HEDGE_TENORS as readonly string[]).includes(t))) return false;
   return hedge.mode === "dv01" ? hedge.tenors.length === 1 : hedge.tenors.length >= 1 && hedge.tenors.length <= 4;
+}
+
+/** A window length and two different hedge maturities, and nothing else. */
+export function isValidFactors(factors: FactorsInput | undefined): factors is FactorsInput {
+  if (!factors || typeof factors !== "object" || Object.keys(factors).length !== 2) return false;
+  if (!(FACTOR_YEARS as readonly unknown[]).includes(factors.years)) return false;
+  const tenors = factors.hedgeTenors as unknown;
+  if (!Array.isArray(tenors) || tenors.length !== 2 || tenors[0] === tenors[1]) return false;
+  return tenors.every((t) => (HEDGE_TENORS as readonly unknown[]).includes(t));
 }
 
 /** A model and inputs holding exactly that model's fields, each of the right kind. Limits are basicsProblem's job. */
@@ -83,6 +106,7 @@ export function encodeLab(state: LabState): string {
       ...(state.bond ? { b: state.bond } : {}),
       ...(state.hedge ? { h: state.hedge } : {}),
       ...(state.basics ? { m: state.basics } : {}),
+      ...(state.factors ? { f: state.factors } : {}),
     }),
   );
 }
@@ -95,12 +119,14 @@ export function decodeLab(text: string): LabState | null {
     if (raw.b !== undefined && !isValidBond(raw.b)) return null;
     if (raw.h !== undefined && !isValidHedge(raw.h)) return null;
     if (raw.m !== undefined && !isValidBasics(raw.m)) return null;
+    if (raw.f !== undefined && !isValidFactors(raw.f)) return null;
     return {
       area: raw.a as Area,
       day: raw.d ?? null,
       ...(raw.b ? { bond: raw.b as BondInput } : {}),
       ...(raw.h ? { hedge: raw.h as HedgeInput } : {}),
       ...(raw.m ? { basics: raw.m as BasicsInput } : {}),
+      ...(raw.f ? { factors: raw.f as FactorsInput } : {}),
     };
   } catch {
     return null;
@@ -123,5 +149,16 @@ export function hedgeRequest(curve: CurveInput, bond: BondInput, hedge: HedgeInp
     faceAmount: hedge.faceAmount,
     mode: hedge.mode,
     hedgeTenors: [...hedge.tenors],
+  };
+}
+
+/** The factors route's request: the window as fetched, the pricer's bond terms, the hedge settings. */
+export function pcaRequest(history: StoredHistory, scheme: Scheme, bond: BondInput, faceAmount: number, factors: FactorsInput) {
+  return {
+    history: { days: history.days, tenors: history.tenors, yields: history.yields },
+    scheme,
+    position: { preset: bond.preset, coupon: bond.coupon, maturity: bond.maturity },
+    faceAmount,
+    hedgeTenors: [...factors.hedgeTenors],
   };
 }

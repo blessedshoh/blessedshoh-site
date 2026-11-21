@@ -34,3 +34,25 @@ test("damaged and out-of-bounds links are refused", () => {
   assert.equal(decodeLab(raw({ v: 1, a: "hedge", h: { faceAmount: 100, mode: "key-rate", tenors: ["2 Yr", "2 Yr"] } })), null);
   assert.equal(decodeLab(raw({ v: 1, a: "basics", m: { model: "nope", inputs: {} } })), null);
 });
+
+test("a factors view with bond, face amount, window and hedge tenors round-trips", () => {
+  const state = {
+    area: "factors",
+    day: "2008-12-31",
+    bond: { preset: "UST", coupon: 4.25, maturity: "2035-11-15", mode: "curve", spreadBp: 0 },
+    hedge: { faceAmount: 5000000, mode: "key-rate", tenors: ["2 Yr", "10 Yr"] },
+    factors: { years: 10, hedgeTenors: ["5 Yr", "30 Yr"] },
+  };
+  assert.deepEqual(decodeLab(encodeLab(state)), state);
+});
+
+test("factors links out of bounds are refused", () => {
+  const raw = (f) => Buffer.from(JSON.stringify({ v: 1, a: "factors", f })).toString("base64url");
+  assert.notEqual(decodeLab(raw({ years: 5, hedgeTenors: ["2 Yr", "10 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: 3, hedgeTenors: ["2 Yr", "10 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: 5, hedgeTenors: ["2 Yr", "2 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: 5, hedgeTenors: ["1 Mo", "10 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: 5, hedgeTenors: ["10 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: "5", hedgeTenors: ["2 Yr", "10 Yr"] })), null);
+  assert.equal(decodeLab(raw({ years: 5, hedgeTenors: ["2 Yr", "10 Yr"], extra: 1 })), null);
+});

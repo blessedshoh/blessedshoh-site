@@ -5,10 +5,11 @@
 import type { Database } from "@blessedshoh/kit/hub-data";
 import { FIRST_DAY, dayOnOrBefore, latestDay, yieldsBetween } from "@blessedshoh/kit/treasury-data";
 import { isIsoDay } from "./state.ts";
+import { FACTOR_YEARS } from "./types.ts";
 
 /** The candidate maturities for the PCA: 3 months to 30 years, in maturity order. */
 export const PCA_TENORS = ["3 Mo", "6 Mo", "1 Yr", "2 Yr", "3 Yr", "5 Yr", "7 Yr", "10 Yr", "20 Yr", "30 Yr"] as const;
-export const WINDOW_YEARS = [1, 2, 5, 10] as const;
+export const WINDOW_YEARS = FACTOR_YEARS;
 export type WindowYears = (typeof WINDOW_YEARS)[number];
 
 export interface StoredHistory {

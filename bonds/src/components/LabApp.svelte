@@ -6,10 +6,11 @@
   import PricePanel from "./PricePanel.svelte";
   import HedgePanel from "./HedgePanel.svelte";
   import BasicsPanel from "./BasicsPanel.svelte";
+  import FactorsPanel from "./FactorsPanel.svelte";
   import type { StoredCurve } from "../lib/curve-data.ts";
   import { decodeLab, encodeLab } from "../lib/state.ts";
   import { track } from "../lib/track.ts";
-  import type { Area, BasicsInput, BondInput, CurveResponse, HedgeInput, Scheme } from "../lib/types.ts";
+  import type { Area, BasicsInput, BondInput, CurveResponse, FactorsInput, HedgeInput, Scheme } from "../lib/types.ts";
 
   interface Props {
     initial: StoredCurve | null;
@@ -22,8 +23,8 @@
 
   let { initial, problem, flags, banner, apiBase, today }: Props = $props();
 
-  const LABELS: Record<Area, string> = { curve: "Today's curve", price: "Price a bond", hedge: "Hedge", basics: "Basics" };
-  const FLAG: Record<Area, string> = { curve: "curve", price: "price", hedge: "hedge", basics: "basics" };
+  const LABELS: Record<Area, string> = { curve: "Today's curve", price: "Price a bond", hedge: "Hedge", factors: "Factors", basics: "Basics" };
+  const FLAG: Record<Area, string> = { curve: "curve", price: "price", hedge: "hedge", factors: "factors", basics: "basics" };
   const areas = $derived((Object.keys(LABELS) as Area[]).filter((a) => flags[FLAG[a]] !== false));
 
   let area = $state<Area>("curve");
@@ -37,6 +38,7 @@
   let bond = $state<BondInput>({ ...defaultBond });
   let hedge = $state<HedgeInput>({ faceAmount: 1_000_000, mode: "key-rate", tenors: ["2 Yr", "5 Yr", "10 Yr", "30 Yr"] });
   let basics = $state<BasicsInput | null>(null);
+  let factors = $state<FactorsInput>({ years: 5, hedgeTenors: ["2 Yr", "10 Yr"] });
   let live = false;
 
   async function loadDay(day: string | null) {
@@ -64,6 +66,7 @@
         if (shared.bond) bond = shared.bond;
         if (shared.hedge) hedge = shared.hedge;
         if (shared.basics) basics = shared.basics;
+        if (shared.factors) factors = shared.factors;
         if (shared.day && shared.day !== stored?.day) loadDay(shared.day);
       } else history.replaceState(null, "", location.pathname);
     }
@@ -76,8 +79,9 @@
     const encoded = encodeLab({
       area,
       day: stored && stored.day !== initial?.day ? stored.day : null,
-      ...(area === "price" || area === "hedge" ? { bond: $state.snapshot(bond) } : {}),
-      ...(area === "hedge" ? { hedge: $state.snapshot(hedge) } : {}),
+      ...(area === "price" || area === "hedge" || area === "factors" ? { bond: $state.snapshot(bond) } : {}),
+      ...(area === "hedge" || area === "factors" ? { hedge: $state.snapshot(hedge) } : {}),
+      ...(area === "factors" ? { factors: $state.snapshot(factors) as FactorsInput } : {}),
       ...(area === "basics" && basics ? { basics: $state.snapshot(basics) } : {}),
     });
     if (!live) return;
@@ -128,6 +132,8 @@
       <PricePanel {apiBase} {stored} {scheme} bind:bond />
     {:else if area === "hedge"}
       <HedgePanel {apiBase} {stored} {scheme} bind:bond bind:hedge />
+    {:else if area === "factors"}
+      <FactorsPanel {apiBase} {stored} {scheme} {bond} {hedge} bind:factors onprice={() => (area = "price")} />
     {:else if area === "basics"}
       <BasicsPanel {apiBase} bind:basics />
     {/if}

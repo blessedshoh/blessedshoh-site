@@ -1,5 +1,5 @@
 // Calls to the Python API's /fixed-income routes. Every number comes back from bondlab.
-import type { BondResponse, CurveResponse, HedgeResponse } from "./types.ts";
+import type { BondResponse, CurveResponse, HedgeResponse, PcaResponse } from "./types.ts";
 
 export async function call<T>(apiBase: string, route: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${apiBase}/fixed-income/${route}`, {
@@ -24,5 +24,6 @@ export async function call<T>(apiBase: string, route: string, body: unknown, sig
 export const fetchCurve = (apiBase: string, body: unknown, signal?: AbortSignal) => call<CurveResponse>(apiBase, "treasury-curve", body, signal);
 export const fetchBond = (apiBase: string, body: unknown, signal?: AbortSignal) => call<BondResponse>(apiBase, "bond", body, signal);
 export const fetchHedge = (apiBase: string, body: unknown, signal?: AbortSignal) => call<HedgeResponse>(apiBase, "hedge", body, signal);
+export const fetchPca = (apiBase: string, body: unknown, signal?: AbortSignal) => call<PcaResponse>(apiBase, "pca", body, signal);
 export const fetchBasics = <T>(apiBase: string, route: "basics" | "rate-tree" | "convertible", body: unknown, signal?: AbortSignal) =>
   call<T>(apiBase, route, body, signal);
