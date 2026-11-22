@@ -91,6 +91,9 @@ export interface PcaResponse {
   dropped: { tenor: string; firstMissing: string }[];
   eigenvalues: number[];
   explained: number[];
+  /** Level, slope and curvature's combined share, and the share left to the rest. */
+  explainedFirstThree: number;
+  explainedRest: number;
   /** √λ for level, slope and curvature, bp per day. */
   dailySd: number[];
   /** loadings[k][t] for level, slope, curvature. */

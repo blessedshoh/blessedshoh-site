@@ -142,13 +142,12 @@
     result
       ? [
           ...NAMES.map((name, k) => ({ label: name, share: result!.explained[k], color: COLORS[k] })),
-          { label: "The rest", share: result.explained.slice(3).reduce((a, b) => a + b, 0), color: "var(--muted)" },
+          { label: "The rest", share: result.explainedRest, color: "var(--muted)" },
         ]
       : [],
   );
   const position = $derived(result?.position && "rows" in result.position ? result.position : null);
   const positionProblem = $derived(result?.position && "problem" in result.position ? result.position.problem : "");
-  const threeShare = $derived(result ? result.explained.slice(0, 3).reduce((a, b) => a + b, 0) : 0);
 
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
   // Whole dollars; anything that rounds to zero is shown as $0, never −$0.
@@ -164,7 +163,7 @@
     <h1>{result ? `Level explains ${pct(result.explained[0])} of daily curve moves` : "Three shapes explain almost every curve move"}</h1>
     <p class="dek">
       {result
-        ? `Over ${result.observations.toLocaleString("en-US")} daily changes from ${result.from} to ${result.day}, level, slope and curvature explain ${pct(threeShare)} of the variance of the Treasury par curve's moves.`
+        ? `Over ${result.observations.toLocaleString("en-US")} daily changes from ${result.from} to ${result.day}, level, slope and curvature explain ${pct(result.explainedFirstThree)} of the variance of the Treasury par curve's moves.`
         : "Principal components of daily changes in Treasury par yields: what moves the curve, and what that does to your bond."}
     </p>
   </header>
