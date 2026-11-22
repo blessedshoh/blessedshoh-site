@@ -1,6 +1,13 @@
 // The stored par yields for a PCA window, as /history.json serves them to the Factors tab.
 // Reads the hub database only, and computes nothing: the rows are pivoted to one per day,
 // with null where the Treasury did not publish a maturity. bondlab picks the tenor set.
+//
+// D1's free tier allows 5,000,000 row reads a day for the whole account, and a ten-year
+// window is about 30,000 rows (the query scans every stored maturity in its range). So the
+// data is read and cached a calendar year at a time: a past year never changes and is cached
+// whole, and the current year is one block keyed on the latest stored day. Any window is
+// then assembled from at most eleven cached blocks, and the blocks a colo can ever miss on
+// are bounded (one per year since 1990, plus one for the current year each day).
 
 import type { Database } from "@blessedshoh/kit/hub-data";
 import { FIRST_DAY, dayOnOrBefore, latestDay, yieldsBetween } from "@blessedshoh/kit/treasury-data";
@@ -26,6 +33,22 @@ export interface StoredHistory {
 
 export type HistoryResult = { status: 200; body: StoredHistory } | { status: 400 | 404 | 503; body: { error: string } };
 
+/** The part of the Workers Cache API used here; absent outside a Worker. */
+export interface WindowCache {
+  match(key: string): Promise<Response | undefined>;
+  put(key: string, response: Response): Promise<void>;
+}
+
+/** One calendar year of stored rows, pivoted. */
+interface Block {
+  days: string[];
+  yields: (number | null)[][];
+}
+
+const ONE_DAY = 86_400;
+const THIRTY_DAYS = 30 * ONE_DAY;
+const FIRST_YEAR = Number(FIRST_DAY.slice(0, 4));
+
 /** The same month and day `years` earlier; 29 February becomes the 28th in a common year. */
 export function windowStart(day: string, years: number): string {
   const [y, m, d] = day.split("-").map(Number);
@@ -36,9 +59,9 @@ export function windowStart(day: string, years: number): string {
   return `${year}-${pad(m)}-${pad(Math.min(d, lastDay))}`;
 }
 
-type Resolved = { status: 200; day: string; years: WindowYears } | { status: 400 | 404 | 503; body: { error: string } };
+type Resolved = { status: 200; day: string; latest: string; years: WindowYears } | { status: 400 | 404 | 503; body: { error: string } };
 
-/** Check the request and find the window's last stored day: one small read. */
+/** Check the request and find the window's last stored day and the latest stored day: two small reads. */
 async function resolveWindow(db: Database, requested: string | null, years: string | null, today: string): Promise<Resolved> {
   const length = Number(years ?? "5");
   if (!(WINDOW_YEARS as readonly number[]).includes(length)) {
@@ -49,19 +72,17 @@ async function resolveWindow(db: Database, requested: string | null, years: stri
     if (requested < FIRST_DAY) return { status: 400, body: { error: `Treasury data here starts on ${FIRST_DAY} (1990)` } };
     if (requested > today) return { status: 400, body: { error: `${requested} is in the future` } };
   }
-  const day = requested === null ? await latestDay(db) : await dayOnOrBefore(db, requested, today);
-  if (day === null) {
-    return requested === null
-      ? { status: 503, body: { error: "no Treasury data has been loaded yet" } }
-      : { status: 404, body: { error: `no Treasury data on or before ${requested}` } };
-  }
-  return { status: 200, day, years: length as WindowYears };
+  const latest = await latestDay(db);
+  if (latest === null) return { status: 503, body: { error: "no Treasury data has been loaded yet" } };
+  const day = requested === null ? latest : await dayOnOrBefore(db, requested, today);
+  if (day === null) return { status: 404, body: { error: `no Treasury data on or before ${requested}` } };
+  return { status: 200, day, latest, years: length as WindowYears };
 }
 
-/** The window's rows, pivoted: the one large read (about 2,500 rows a year of window). */
-async function windowHistory(db: Database, day: string, years: WindowYears): Promise<HistoryResult> {
-  const rows = await yieldsBetween(db, windowStart(day, years), day, PCA_TENORS);
-  if (rows.length === 0) return { status: 404, body: { error: `no Treasury data in the ${years}-year window ending ${day}` } };
+/** Read one calendar year (up to `last` for the current year) and pivot it: the one large read. */
+async function readBlock(db: Database, year: number, last: string): Promise<Block> {
+  const end = `${year}-12-31` < last ? `${year}-12-31` : last;
+  const rows = await yieldsBetween(db, `${year}-01-01`, end, PCA_TENORS);
   const days: string[] = [];
   const yields: (number | null)[][] = [];
   for (const row of rows) {
@@ -72,43 +93,65 @@ async function windowHistory(db: Database, day: string, years: WindowYears): Pro
     const column = (PCA_TENORS as readonly string[]).indexOf(row.tenor);
     if (column >= 0) yields[yields.length - 1][column] = row.yield_pct;
   }
+  return { days, yields };
+}
+
+/** A year's block from the cache, or read and cached: past years for thirty days, the current year for one. */
+async function block(db: Database, year: number, latest: string, cache: WindowCache | null, origin: string): Promise<Block> {
+  const current = year === Number(latest.slice(0, 4));
+  const key = current ? `${origin}/__history/block/${year}/${latest}` : `${origin}/__history/block/${year}`;
+  const hit = cache ? await cache.match(key) : undefined;
+  if (hit) return (await hit.json()) as Block;
+  const fresh = await readBlock(db, year, latest);
+  if (cache) {
+    const maxAge = current ? ONE_DAY : THIRTY_DAYS;
+    await cache.put(key, Response.json(fresh, { headers: { "cache-control": `public, max-age=${maxAge}` } }));
+  }
+  return fresh;
+}
+
+async function assemble(
+  db: Database,
+  resolved: { day: string; latest: string; years: WindowYears },
+  cache: WindowCache | null,
+  origin: string,
+): Promise<HistoryResult> {
+  const { day, latest, years } = resolved;
+  const start = windowStart(day, years);
+  const days: string[] = [];
+  const yields: (number | null)[][] = [];
+  for (let year = Math.max(FIRST_YEAR, Number(start.slice(0, 4))); year <= Number(day.slice(0, 4)); year++) {
+    const part = await block(db, year, latest, cache, origin);
+    part.days.forEach((d, i) => {
+      if (d >= start && d <= day) {
+        days.push(d);
+        yields.push(part.yields[i]);
+      }
+    });
+  }
+  if (days.length === 0) return { status: 404, body: { error: `no Treasury data in the ${years}-year window ending ${day}` } };
   return { status: 200, body: { day, years, from: days[0], tenors: [...PCA_TENORS], days, yields } };
 }
 
+/** The window's history without a cache (tests, and any caller outside a Worker). */
 export async function historyPayload(db: Database, requested: string | null, years: string | null, today: string): Promise<HistoryResult> {
   const resolved = await resolveWindow(db, requested, years, today);
-  return resolved.status === 200 ? windowHistory(db, resolved.day, resolved.years) : resolved;
+  return resolved.status === 200 ? assemble(db, resolved, null, "") : resolved;
 }
 
-/** The part of the Workers Cache API used here; absent outside a Worker. */
-export interface WindowCache {
-  match(key: string): Promise<Response | undefined>;
-  put(key: string, response: Response): Promise<void>;
-}
-
-const ONE_DAY = 86_400;
-
-/**
- * The /history.json response. A resolved window (last stored day and length) is cached for a
- * day: past windows never change, and the latest one moves at most once a day. Errors are not
- * cached.
- */
+/** The /history.json response, built from year blocks cached under the site's own origin. Errors are not cached. */
 export async function cachedHistory(
   db: Database,
   requested: string | null,
   years: string | null,
   today: string,
   cache: WindowCache | null,
+  origin: string,
 ): Promise<Response> {
   const fail = (status: number, body: { error: string }) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
   const resolved = await resolveWindow(db, requested, years, today);
   if (resolved.status !== 200) return fail(resolved.status, resolved.body);
-  const key = `https://bonds.internal/history/${resolved.day}/${resolved.years}`;
-  const hit = cache ? await cache.match(key) : undefined;
-  if (hit) return hit;
-  const result = await windowHistory(db, resolved.day, resolved.years);
+  const result = await assemble(db, resolved, cache, origin);
   if (result.status !== 200) return fail(result.status, result.body);
-  const response = Response.json(result.body, { headers: { "cache-control": `public, max-age=${ONE_DAY}` } });
-  if (cache) await cache.put(key, response.clone());
-  return response;
+  return Response.json(result.body, { headers: { "cache-control": `public, max-age=${ONE_DAY}` } });
 }
